@@ -11,7 +11,7 @@
 # iter: max number of iterations
 # seed:
 nlodm = function(
-  model,
+  model = NULL,
   grad_fun,
   obj,
   theta,
