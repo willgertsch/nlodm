@@ -1,4 +1,4 @@
-# utility functions for optimal design
+# utility functions
 
 # checks if information matrix is invertible
 # returns 1 if invertible and 0 if not
