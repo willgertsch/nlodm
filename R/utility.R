@@ -45,6 +45,20 @@ grad_selector = function(model) {
     grad_fun = grad.logprobit
   else if (model == "4 parameter log-logistic")
     grad_fun = grad.loglogistic4
+  else
+    stop('Model not supported')
 
   return(grad_fun)
+}
+
+# input switching for using predefined or custom model
+# will always default to grad_fun if supplied
+get_grad = function(model, grad_fun) {
+
+  if (!is.null(grad_fun) & is.function(grad_fun))
+    return(grad_fun)
+  else if (!is.null(model))
+    return(grad_selector(model))
+  else
+    stop('gradient not defined')
 }

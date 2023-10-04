@@ -20,7 +20,7 @@ compute_eff = function(
 
 
   # select gradient function
-  #grad_fun = grad_selector(model)
+  grad_fun = get_grad(model, grad_fun)
 
   if (objective == "D")
     obj_fun = obj.D

@@ -23,6 +23,9 @@ nlodm = function(
   seed
   ) {
 
+  # get gradient function
+  grad_fun = get_grad(model, grad_fun)
+
   # input checking
   # design objective
   if (obj == "D")
