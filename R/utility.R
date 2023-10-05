@@ -62,3 +62,52 @@ get_grad = function(model, grad_fun) {
   else
     stop('gradient not defined')
 }
+
+# select bmd gradient function
+get_bmd_grad = function(model, risk_type) {
+
+  if (is.null(model)) {
+    stop("Specify a model")
+  }
+  if (model == "Logistic") {
+    grad_fun = grad.logistic
+
+    if (risk_type == "added") {
+      bmd_grad = bmdgrad.logistic.add
+    }
+    else if (risk_type == "extra")
+      bmd_grad = bmdgrad.logistic.extra
+  }
+  else if (model == "Weibull") {
+    grad_fun = grad.weibull
+
+    if (risk_type == "added") {
+      bmd_grad = bmdgrad.weibull.add
+    }
+    else if (risk_type == "extra") {
+      bmd_grad = bmdgrad.weibull.extra
+    }
+  }
+  else if (model == "Log-logistic") {
+    grad_fun = grad.loglogistic
+
+    if (risk_type == "added") {
+      bmd_grad = bmdgrad.loglogistic.add
+    }
+    else if (risk_type == "extra") {
+      bmd_grad = bmdgrad.loglogistic.extra
+    }
+  }
+  else if (model == "Hill") {
+    grad_fun = grad.hill
+
+    if (risk_type == "added") {
+      bmd_grad = bmdgrad.hill.add
+    }
+    else if (risk_type == "extra") {
+      bmd_grad = bmdgrad.hill.extra
+    }
+  }
+
+  return(bmd_grad)
+}

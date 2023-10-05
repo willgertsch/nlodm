@@ -103,8 +103,8 @@ grad.loglogistic = function(x, theta) {
   b = theta[3]
 
   g1 = 1/(exp(a) * x^b + 1)
-  g2 = (1-g)*exp(-a-b*log(x))/(exp(-a-b*log(x)) + 1)^2
-  g3 = (1-g)*log(x)*exp(-a-b*log(x))/(exp(-a-b*log(x))+1)^2
+  g2 = suppressWarnings((1-g)*exp(-a-b*log(x))/(exp(-a-b*log(x)) + 1)^2)
+  g3 = suppressWarnings((1-g)*log(x)*exp(-a-b*log(x))/(exp(-a-b*log(x))+1)^2)
   return(c(g1, g2, g3))
 }
 
