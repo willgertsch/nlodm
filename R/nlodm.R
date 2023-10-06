@@ -18,6 +18,7 @@ nlodm = function(
   grad_fun,
   obj,
   theta,
+  prior_weights = c(1),
   bound,
   pts,
   algorithm,
@@ -52,7 +53,7 @@ nlodm = function(
     stop("Objective not supported")
 
   # objective function
-  obj_fun_M = obj_fun_factory(grad_fun, obj_fun, theta, param)
+  obj_fun_M = obj_fun_factory(grad_fun, obj_fun, theta, param, prior_weights)
 
   # set up variable bounds
   rangeVar = matrix(c(rep(c(0, bound), pts), rep(c(0,1), pts)), nrow = 2)
