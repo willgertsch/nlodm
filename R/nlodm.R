@@ -82,6 +82,9 @@ nlodm = function(
   w = w[w > 1e-5]
   result$result = c(x, w)
 
+  if (is.matrix(theta))
+    theta = theta[1, ]
+
   M = M.nonlinear(x, w, theta, grad_fun)
   problem = list(bound = bound, obj = obj, theta = theta, param = param)
   p = plot_sens(x, w, problem, M, grad_fun)
