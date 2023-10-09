@@ -13,3 +13,16 @@ M.nonlinear = function(x, w, theta, grad_fun) {
   }
   IM
 }
+
+# return a list of information matrices
+# treats theta as a matrix
+M.nonlinear.list = function(x, w, theta, grad_fun) {
+
+  M.list = list()
+  p = nrow(theta)
+  for (i in 1:p) {
+    M.list[[i]] = M.nonlinear(x, w, theta[i, ], grad_fun)
+  }
+
+  return(M.list)
+}

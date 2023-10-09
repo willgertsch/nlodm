@@ -10,10 +10,6 @@ obj_fun_factory = function(grad_fun, obj_fun, theta, param, prior_weights = c(1)
   force(theta)
   force(param)
 
-  # if theta is vector, convert to matrix
-  if (is.vector(theta))
-    theta = matrix(theta, nrow = 1)
-
   # interface called by optimization software
   # return this function
   function(vars, ...) {

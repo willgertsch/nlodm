@@ -52,6 +52,10 @@ nlodm = function(
   else
     stop("Objective not supported")
 
+  # if theta is vector, convert to matrix
+  if (is.vector(theta))
+    theta = matrix(theta, nrow = 1)
+
   # objective function
   obj_fun_M = obj_fun_factory(grad_fun, obj_fun, theta, param, prior_weights)
 
@@ -82,12 +86,13 @@ nlodm = function(
   w = w[w > 1e-5]
   result$result = c(x, w)
 
-  if (is.matrix(theta))
-    theta = theta[1, ]
+  # if (is.matrix(theta))
+  #   theta = theta[1, ]
 
-  M = M.nonlinear(x, w, theta, grad_fun)
+  #M = M.nonlinear(x, w, theta, grad_fun)
+  M.list = M.nonlinear.list(x, w, theta, grad_fun)
   problem = list(bound = bound, obj = obj, theta = theta, param = param)
-  p = plot_sens(x, w, problem, M, grad_fun)
+  p = plot_sens(x, w, problem, M.list, grad_fun, prior_weights)
 
   return(list(result = result, plot = p))
 

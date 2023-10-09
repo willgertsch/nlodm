@@ -27,6 +27,10 @@ compute_eff = function(
   else if (objective == "A")
     obj_fun = obj.A
 
+  # if theta is vector, convert to matrix
+  if (is.vector(theta))
+    theta = matrix(theta, nrow = 1)
+
   # define objective function
   param = c()
   obj_fun_M = obj_fun_factory(grad_fun, obj_fun, theta, param)

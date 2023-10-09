@@ -1,9 +1,9 @@
 # plot sensitivity function for a given design
 # problem is same list from toxODmeta
 # x, w are design point and weight vectors
-# M: pre-computed information matrix
+# M: list of pre-computed information matrices
 # grad_fun: gradient function
-plot_sens = function(x, w, problem, M, grad_fun) {
+plot_sens = function(x, w, problem, M.list, grad_fun, prior_weights = c(1)) {
 
   # x values
   step = problem$bound/1000
@@ -25,21 +25,30 @@ plot_sens = function(x, w, problem, M, grad_fun) {
   }
   else {
     # expand this to handle solving design problems with no verification
-    #stop("No derivative specified for this objective.")
+    stop("No derivative specified for this objective.")
     # use y=2 to denote missing derivative function
-    yvals = rep(2, length(xvals))
+    #yvals = rep(2, length(xvals))
   }
 
   # compute sensitivity function
-  # check first if matrix is invertible and then invert
-  if (!checkMinv(M)) {
-    # using y=1 to denote matrix singularity
-    yvals = rep(1, length(xvals))
+  # average over prior theta values
+  yvals = rep(0, length(xvals))
+  p = nrow(problem$theta)
+  for (i in 1:p) {
+    M_i = M.list[[i]]
+    theta_i = problem$theta[i, ]
+    # check first if matrix is invertible and then invert
+    if (!checkMinv(M_i)) {
+      # using y=1 to denote matrix singularity
+      yvals = rep(1, length(xvals))
+    }
+    else {
+      #Minv = solve(M_i)
+      yvals = yvals +
+        sapply(xvals, sens, grad_fun, dPsi, M_i, theta_i, param) * prior_weights[i]
+    }
   }
-  else {
-    Minv = solve(M)
-    yvals = sapply(xvals, sens, grad_fun, dPsi, M, problem$theta, param)
-  }
+
 
 
 
