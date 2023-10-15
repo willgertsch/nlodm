@@ -82,3 +82,23 @@ test_that('A log-logistic', {
   expect_equal(length(out$result$result), 6)
   expect_equal(length(out$plot), 9) # ggplot objects are lists of length 9
 })
+
+test_that('D Weibull', {
+  out = nlodm(
+    model = 'Weibull',
+    grad_fun = grad.weibull,
+    obj = 'D',
+    theta = c(0.05307, .99, 0.04929),
+    bound = 30,
+    pts = 3,
+    algorithm = 'PSO',
+    swarm = 30,
+    iter = 300,
+    seed = 1234
+  )
+  #out$result
+  #out$plot
+
+  expect_equal(length(out$result$result), 6)
+  expect_equal(length(out$plot), 9) # ggplot objects are lists of length 9
+})
