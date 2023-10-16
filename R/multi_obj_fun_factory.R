@@ -46,7 +46,11 @@ multi_obj_fun_factory = function(grad_funs, obj_funs, thetas, params) {
     # vectorize
     nas = is.na(obj_vals)
     obj_vals[nas] = -Inf
-    return(obj_vals)
+
+    # turn into a matrix
+    obj_vals_mat = matrix(obj_vals, nrow = 1)
+
+    return(obj_vals_mat)
   }
 
 }

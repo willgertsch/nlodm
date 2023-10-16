@@ -30,6 +30,6 @@ test_that("multiobjective function", {
   true_obj_vals[3] = obj_fun3(vars)
 
   # compare
-  expect_equal(true_obj_vals, test_obj_vals)
+  expect_equal(matrix(true_obj_vals, nrow=1), test_obj_vals)
 
 })
