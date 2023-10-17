@@ -30,6 +30,44 @@ test_that("multiobjective function", {
   true_obj_vals[3] = obj_fun3(vars)
 
   # compare
-  expect_equal(matrix(true_obj_vals, nrow=1), test_obj_vals)
+  expect_equal(true_obj_vals, test_obj_vals)
+
+})
+
+test_that('factory works with optimizer', {
+
+  grad_funs = list(grad.logistic, grad.loglogistic, grad.weibull)
+  obj_funs = list(obj.A, obj.D, obj.D)
+  thetas = list(
+    matrix(c(-1.710, 0.09703), nrow=1),
+    matrix(c(0.02461, -2.390, 1), nrow=1),
+    matrix(c(0.05307, .99, 0.04929), nrow=1)
+  )
+  params = list(
+    c(),
+    c(),
+    c()
+  )
+  test_multi_fun = multi_obj_fun_factory(grad_funs, obj_funs, thetas, params)
+
+  pts = 3
+  bound = 30
+
+  res = ecr::ecr(
+    fitness.fun = test_multi_fun,
+    minimize = c(F, F, F),
+    n.objectives = length(obj_funs),
+    n.dim = 2*pts,
+    lower = rep(0, 2*pts),
+    upper = c(rep(bound, pts), rep(1, pts)),
+    representation = 'float',
+    mu = 100, # number of individuals in population
+    lambda = 1, # create 1 offspring,
+    p.recomb = 0.7,
+    p.mut = 0.3,
+    survival.strategy = 'plus',
+    log.pop = T
+
+  )
 
 })

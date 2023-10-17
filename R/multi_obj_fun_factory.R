@@ -23,6 +23,8 @@ multi_obj_fun_factory = function(grad_funs, obj_funs, thetas, params) {
   # interface called by optimization software: rmoo
   # return this function
   function(vars, nobj = d, ...) {
+
+    #browser()
     # distinguish between points and weights
     pts = length(vars)/2
     x = vars[1:pts]
@@ -47,10 +49,7 @@ multi_obj_fun_factory = function(grad_funs, obj_funs, thetas, params) {
     nas = is.na(obj_vals)
     obj_vals[nas] = -Inf
 
-    # turn into a matrix
-    obj_vals_mat = matrix(obj_vals, nrow = 1)
-
-    return(obj_vals_mat)
+    return(obj_vals)
   }
 
 }
