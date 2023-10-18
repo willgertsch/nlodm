@@ -22,3 +22,15 @@ extract_nsga2R = function(nsga2R_out) {
   return(d)
 
 }
+
+# plot pareto front for two objectives
+# pareto_data: output from extract_nsga2R
+# obj_names: vector of strings to label x and y axis
+plot_pareto2d = function(pareto_data, obj_names) {
+
+  ggplot2::ggplot(pareto_data,
+         aes(x = obj1, y = obj2)) +
+    geom_point(color = "blue", size = 2) +
+    theme_bw() +
+    labs(title = "Pareto front", x = obj_names[1], y = obj_names[2])
+}

@@ -30,13 +30,8 @@ test_that("basic multi_obj", {
   pareto_data = extract_nsga2R(result)
   expect_equal(ncol(pareto_data), 8)
 
-  #
-  # # plot Pareto front
-  # library(ggplot2)
-  # ggplot(d,
-  #        aes(x = `logistic A`, y = `log-logistic D`)) +
-  #   geom_point(color = "blue", size = 2) +
-  #   theme_bw() +
-  #   labs(title = "")
+  # plot
+  p = plot_pareto2d(pareto_data, c("logistic A", "log-logistic D"))
+  expect_equal(length(p), 9) # ggplot objects are lists of length 9
 
 })
