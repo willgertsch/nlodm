@@ -25,18 +25,11 @@ test_that("basic multi_obj", {
   )
 
   expect_equal(length(result), 16)
-  # result
-  #
-  # # process results
-  # library(dplyr)
-  # d = result$objectives %>%
-  #   as.data.frame() %>%
-  #   bind_cols(as.data.frame(result$parameters)) %>%
-  #   filter(result$paretoFrontRank == 1) %>%
-  #   distinct()
-  #
-  # colnames(d) = c('logistic A', "log-logistic D", 'x1', 'x2', 'x3',
-  #                 'w1', 'w2','w3')
+
+  # test extraction function
+  pareto_data = extract_nsga2R(result)
+  expect_equal(ncol(pareto_data), 8)
+
   #
   # # plot Pareto front
   # library(ggplot2)
