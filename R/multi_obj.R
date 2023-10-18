@@ -1,8 +1,8 @@
 # find multi-objective designs
 # supports both compound and pareto designs
 multi_obj = function(grad_funs, obj_funs, thetas, params, type = 'pareto',
-                     weights = NULL, algorithm = 'NSGA-III', bound, pts,
-                     swarm = 50, maxiter = 300) {
+                     weights = NULL, bound, pts,
+                     swarm = 50, maxiter = 300, verbose = T) {
 
   if (type == 'compound') {
 
@@ -32,19 +32,37 @@ multi_obj = function(grad_funs, obj_funs, thetas, params, type = 'pareto',
     #
     # )
 
-    # supress printing
-    # capture.output( y2 <- ff(4), file = nullfile())
-    result = nsga2R::nsga2R(
-      fn = multi_obj_fun,
-      varNo = pts * 2,
-      objDim = length(obj_funs),
-      lowerBounds = rep(0, 2*pts),
-      upperBounds = c(rep(bound, pts), rep(1, pts)),
-      generations = maxiter,
-      mprob = 0.2,
-      popSize = swarm,
-      cprob = 0.8
-    )
+    if (verbose) {
+      result = nsga2R::nsga2R(
+        fn = multi_obj_fun,
+        varNo = pts * 2,
+        objDim = length(obj_funs),
+        lowerBounds = rep(0, 2*pts),
+        upperBounds = c(rep(bound, pts), rep(1, pts)),
+        generations = maxiter,
+        mprob = 0.2,
+        popSize = swarm,
+        cprob = 0.8
+      )
+    }
+    else {
+      # suppress output
+      capture.output(
+        result = nsga2R::nsga2R(
+          fn = multi_obj_fun,
+          varNo = pts * 2,
+          objDim = length(obj_funs),
+          lowerBounds = rep(0, 2*pts),
+          upperBounds = c(rep(bound, pts), rep(1, pts)),
+          generations = maxiter,
+          mprob = 0.2,
+          popSize = swarm,
+          cprob = 0.8
+        ),
+        file = nullfile()
+      )
+    }
+
 
     return(result)
 

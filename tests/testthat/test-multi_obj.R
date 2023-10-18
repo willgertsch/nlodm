@@ -11,18 +11,17 @@ test_that("basic multi_obj", {
     c()
   )
 
-  #library(ecr)
   result = multi_obj(
     grad_funs = grad_funs,
     obj_funs = obj_funs,
     thetas = thetas,
     params = params,
     type = 'pareto',
-    algorithm = 'NSGA-III',
     bound = 30,
     pts = 3,
     swarm = 50,
-    maxiter = 100
+    maxiter = 100,
+    verbose = F
   )
 
   expect_equal(length(result), 16)
