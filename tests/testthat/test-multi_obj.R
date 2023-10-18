@@ -13,6 +13,7 @@ test_that("basic multi_obj", {
     c()
   )
 
+  #library(ecr)
   result = multi_obj(
     grad_funs = grad_funs,
     objs = obj_funs,

@@ -14,23 +14,23 @@ multi_obj = function(grad_funs, objs, thetas, params, type = 'pareto',
 
 
     # call optimizer
-    browser()
-    result = ecr::ecr(
-      fitness.fun = multi_obj_fun,
-      minimize = c(F, F, F),
-      n.objectives = length(obj_funs),
-      n.dim = 2*pts,
-      lower = rep(0, 2*pts),
-      upper = c(rep(bound, pts), rep(1, pts)),
-      representation = 'float',
-      mu = 100, # number of individuals in population
-      lambda = 1, # create 1 offspring,
-      p.recomb = 0.7,
-      p.mut = 0.3,
-      survival.strategy = 'plus',
-      log.pop = T
-
-    )
+    #browser()
+    # result = ecr::ecr(
+    #   fitness.fun = multi_obj_fun,
+    #   minimize = c(F, F, F),
+    #   n.objectives = length(obj_funs),
+    #   n.dim = 2*pts,
+    #   lower = rep(0, 2*pts),
+    #   upper = c(rep(bound, pts), rep(1, pts)),
+    #   representation = 'float',
+    #   mu = 100, # number of individuals in population
+    #   lambda = 1, # create 1 offspring,
+    #   p.recomb = 0.7,
+    #   p.mut = 0.3,
+    #   survival.strategy = 'plus',
+    #   log.pop = T
+    #
+    # )
 
     return(result)
 
