@@ -1,6 +1,6 @@
 # find multi-objective designs
 # supports both compound and pareto designs
-multi_obj = function(grad_funs, objs, thetas, params, type = 'pareto',
+multi_obj = function(grad_funs, obj_funs, thetas, params, type = 'pareto',
                      weights = NULL, algorithm = 'NSGA-III', bound, pts,
                      swarm = 50, maxiter = 300) {
 

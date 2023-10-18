@@ -14,7 +14,7 @@ test_that("basic multi_obj", {
   #library(ecr)
   result = multi_obj(
     grad_funs = grad_funs,
-    objs = obj_funs,
+    obj_funs = obj_funs,
     thetas = thetas,
     params = params,
     type = 'pareto',
@@ -25,6 +25,7 @@ test_that("basic multi_obj", {
     maxiter = 100
   )
 
+  expect_equal(length(result), 16)
   # result
   #
   # # process results
