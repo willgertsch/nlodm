@@ -32,6 +32,20 @@ multi_obj = function(grad_funs, objs, thetas, params, type = 'pareto',
     #
     # )
 
+    # supress printing
+    # capture.output( y2 <- ff(4), file = nullfile())
+    result = nsga2R::nsga2R(
+      fn = multi_obj_fun,
+      varNo = pts * 2,
+      objDim = length(obj_funs),
+      lowerBounds = rep(0, 2*pts),
+      upperBounds = c(rep(bound, pts), rep(1, pts)),
+      generations = maxiter,
+      mprob = 0.2,
+      popSize = swarm,
+      cprob = 0.8
+    )
+
     return(result)
 
   }

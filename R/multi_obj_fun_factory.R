@@ -33,7 +33,7 @@ multi_obj_fun_factory = function(grad_funs, obj_funs, thetas, params) {
     # check weight constraint
     s = sum(w, na.rm = T) # na.rm needed to fix if statement error
     if (s > 1) # constraint implementation
-      return(rep(-Inf, nobj))
+      return(rep(Inf, nobj))
 
     M_fun = M.nonlinear # always using general nonlinear matrix
 
@@ -41,13 +41,13 @@ multi_obj_fun_factory = function(grad_funs, obj_funs, thetas, params) {
     # call objective functions
     obj_vals = numeric(nobj)
     for (i in 1:length(grad_funs)) {
-      obj_vals[i] = obj_funs[[i]](M_fun(x, w, thetas[[i]], grad_funs[[i]]), params[[i]])
+      obj_vals[i] = -obj_funs[[i]](M_fun(x, w, thetas[[i]], grad_funs[[i]]), params[[i]])
     }
 
     # deal with missing
     # vectorize
     nas = is.na(obj_vals)
-    obj_vals[nas] = -Inf
+    obj_vals[nas] = Inf
 
     return(obj_vals)
   }
