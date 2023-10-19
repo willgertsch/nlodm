@@ -7,17 +7,20 @@ extract_nsga2R = function(nsga2R_out) {
   num_pts = nsga2R_out$parameterDim/2
   num_obj = nsga2R_out$objectiveDim
 
-  d = nsga2R_out$objectives %>%
-    as.data.frame() %>%
-    bind_cols(as.data.frame(nsga2R_out$parameters)) %>%
-    dplyr::filter(nsga2R_out$paretoFrontRank == 1) %>%
-    dplyr::distinct()
+  d = cbind(as.data.frame(nsga2R_out$objectives),
+            as.data.frame(nsga2R_out$parameters))
+
 
   colnames(d) = c(
     paste0(rep("obj", num_obj), seq(1:num_obj)),
     paste0(rep("d", num_pts), seq(1:num_pts)),
     paste0(rep("w", num_pts), seq(1:num_pts))
   )
+
+  d = d %>% dplyr::filter(nsga2R_out$paretoFrontRank == 1) %>%
+    dplyr::distinct()
+
+
 
   return(d)
 
@@ -29,8 +32,8 @@ extract_nsga2R = function(nsga2R_out) {
 plot_pareto2d = function(pareto_data, obj_names) {
 
   ggplot2::ggplot(pareto_data,
-         aes(x = obj1, y = obj2)) +
-    geom_point(color = "blue", size = 2) +
-    theme_bw() +
-    labs(title = "Pareto front", x = obj_names[1], y = obj_names[2])
+         ggplot2::aes(x = obj1, y = obj2)) +
+    ggplot2::geom_point(color = "blue", size = 2) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Pareto front", x = obj_names[1], y = obj_names[2])
 }

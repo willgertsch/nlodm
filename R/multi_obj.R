@@ -6,6 +6,7 @@ multi_obj = function(grad_funs, obj_funs, thetas, params, type = 'pareto',
 
   if (type == 'compound') {
 
+    return(NULL)
   }
   else if (type == 'pareto') {
 
@@ -47,8 +48,8 @@ multi_obj = function(grad_funs, obj_funs, thetas, params, type = 'pareto',
     }
     else {
       # suppress output
-      capture.output(
-        result = nsga2R::nsga2R(
+       capture.output(
+         result <- nsga2R::nsga2R(
           fn = multi_obj_fun,
           varNo = pts * 2,
           objDim = length(obj_funs),
@@ -62,12 +63,10 @@ multi_obj = function(grad_funs, obj_funs, thetas, params, type = 'pareto',
         file = nullfile()
       )
     }
-
-
-    return(result)
-
   }
   else
     stop('Design type not supported')
+
+  return(result)
 
 }
