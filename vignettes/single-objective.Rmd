@@ -1,0 +1,77 @@
+---
+title: "Finding Single Objective Designs"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Finding Single Objective Designs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(nlodm)
+```
+
+## Introduction
+The `nlodm` package can find optimal designs for nonlinear dose response models of the form
+$$
+P(d) = f(d; \theta) + \epsilon
+$$
+ The package supports a large variety of different models and objectives.
+
+
+## Optimal design theory
+A design for a dose-response experiment is a set of $k$ doses, $d_1, \dots, d_k$ and the numbers of subjects at each dose, $n_1, \dots, n_k$. In practice it is easier to work with the weights $w_i = N/n_i$, where $N$ is the total sample size. We can then write the $k$ point design as a probability measure
+$$
+\xi = \begin{pmatrix} d_1 &\dots &d_k\\w_1 &\dots& w_k\end{pmatrix}
+$$
+For a given design $\xi$ and model function $f(d;\theta)$, we can construct a matrix that is proportional to the observed information matrix if the model was estimated from the design.
+
+$$
+M = M(\xi, \theta) = \sum_{i=1}^k w_i M_i(\xi, \theta) = \sum_{i=1}^k w_i \nabla f(d_i, \theta) \nabla f^T(d_i, \theta)
+$$
+where $\nabla f(d_i, \theta)$ is the gradient of the model function at dose $d_i$.
+
+## Finding locally optimal designs
+We will demonstrate how to use the `nlodm` function to find a locally D-optimal design for the log-logistic model.
+
+First, the function requires the gradient function of the model be supplied. This allows the code to find designs for custom models easily. There are several built-in gradient functions and we can look at the gradient function for the log-logistic model.
+```{r}
+grad.loglogistic
+```
+
+In short, the `nlodm` function expects the gradient function to take two arguments, `x`and `theta`, and return a vector of the gradient components. This is helpful if you want to define your own gradient functions. Alternatively, we can use the `model` argument to select from the list of built-in models.
+
+The design criteria can be chosen by specifying the `obj` argument. Current options are `'D'`, `'A'`, and `'bmd'`.
+
+The `theta` option is for specifying the local parameter values for the model. These values can be obtained from a prior experiment or a reasonable guess based on theory. The values in the example were obtained from an example dataset. Later, we will see how to provide multiple values for theta to find Bayesian designs.
+
+The `pts` and `bound` options control the number of design points and the upper dose limit for the experiment. The package will automatically prune design points with low weight, but cannot add more points if the initial number is too small.  Since the number of points in the optimal design tends to match the number of paramters, we set the number of design points equal to 3.
+
+The `algorithm`, `swarm`, `iter`, and `seed` arguments control the metaheuristic algorithm. The algorithms are supplied by the `metaheuristicOpt` package and you can see what algorithms are available by running `?metaheuristicOpt::metaOpt`.
+
+Call to find the optimal design.
+```{r}
+out = nlodm(
+    model = NULL,
+    grad_fun = grad.loglogistic,
+    obj = 'D',
+    theta = c(0.02461, -2.390, 1),
+    bound = 30,
+    pts = 3,
+    algorithm = 'PSO',
+    swarm = 30,
+    iter = 400,
+    seed = 1234
+  )
+```
+
+## Designs for estimating the benchmark dose
+
+## (pseudo) Bayesian designs
