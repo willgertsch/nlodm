@@ -19,29 +19,37 @@ library(nlodm)
 ```
 
 ## Introduction
-The `nlodm` package can find optimal designs for nonlinear dose response models of the form
-$$
-P(d) = f(d; \theta) + \epsilon
-$$
- The package supports a large variety of different models and objectives.
 
+The `nlodm` package can find optimal designs for nonlinear dose response models of the form $$
+P(d) = f(d; \theta) + \epsilon
+$$ The package supports a large variety of different models and objectives.
 
 ## Optimal design theory
-A design for a dose-response experiment is a set of $k$ doses, $d_1, \dots, d_k$ and the numbers of subjects at each dose, $n_1, \dots, n_k$. In practice it is easier to work with the weights $w_i = N/n_i$, where $N$ is the total sample size. We can then write the $k$ point design as a probability measure
-$$
+
+A design for a dose-response experiment is a set of $k$ doses, $d_1, \dots, d_k$ and the numbers of subjects at each dose, $n_1, \dots, n_k$. In practice it is easier to work with the weights $w_i = N/n_i$, where $N$ is the total sample size. We can then write the $k$ point design as a probability measure $$
 \xi = \begin{pmatrix} d_1 &\dots &d_k\\w_1 &\dots& w_k\end{pmatrix}
-$$
-For a given design $\xi$ and model function $f(d;\theta)$, we can construct a matrix that is proportional to the observed information matrix if the model was estimated from the design.
+$$ For a given design $\xi$ and model function $f(d;\theta)$, we can construct a matrix that is proportional to the observed information matrix if the model was estimated from the design.
 
 $$
 M = M(\xi, \theta) = \sum_{i=1}^k w_i M_i(\xi, \theta) = \sum_{i=1}^k w_i \nabla f(d_i, \theta) \nabla f^T(d_i, \theta)
-$$
-where $\nabla f(d_i, \theta)$ is the gradient of the model function at dose $d_i$.
+$$ where $\nabla f(d_i, \theta)$ is the gradient of the model function at dose $d_i$.
 
-## Finding locally optimal designs
-We will demonstrate how to use the `nlodm` function to find a locally D-optimal design for the log-logistic model.
+Once the information matrix is constructed, we can compute an objective function to judge how optimal the candidate design is. A very popular choice of objective function is
+
+$$
+\Psi_D(M) = \text{logdet} (M)
+$$
+
+Maximizing $\Psi_D(M)$ will minimize the volume of the confidence region for the regression parameters.
+
+Once we have the design, we can use a result by [Kiefer (1960)](https://www.jstor.org/stable/2958055) to determine if the design is optimal. The `nlodm` function will automatically generate a graphical check to see if the design is optimal.
+
+## Finding optimal designs
+
+We will demonstrate how to use the `nlodm` function to find the D-optimal design for the log-logistic model.
 
 First, the function requires the gradient function of the model be supplied. This allows the code to find designs for custom models easily. There are several built-in gradient functions and we can look at the gradient function for the log-logistic model.
+
 ```{r}
 grad.loglogistic
 ```
@@ -52,12 +60,11 @@ The design criteria can be chosen by specifying the `obj` argument. Current opti
 
 The `theta` option is for specifying the local parameter values for the model. These values can be obtained from a prior experiment or a reasonable guess based on theory. The values in the example were obtained from an example dataset. Later, we will see how to provide multiple values for theta to find Bayesian designs.
 
-The `pts` and `bound` options control the number of design points and the upper dose limit for the experiment. The package will automatically prune design points with low weight, but cannot add more points if the initial number is too small.  Since the number of points in the optimal design tends to match the number of paramters, we set the number of design points equal to 3.
+The `pts` and `bound` options control the number of design points and the upper dose limit for the experiment. The package will automatically prune design points with low weight, but cannot add more points if the initial number is too small. Since the number of points in the optimal design tends to match the number of paramters, we set the number of design points equal to 3.
 
-The `algorithm`, `swarm`, `iter`, and `seed` arguments control the metaheuristic algorithm. The algorithms are supplied by the `metaheuristicOpt` package and you can see what algorithms are available by running `?metaheuristicOpt::metaOpt`.
+The `algorithm`, `swarm`, `iter`, and `seed` arguments control the metaheuristic algorithm. The algorithms are supplied by the `metaheuristicOpt` package and you can see what algorithms are available by running `?metaheuristicOpt::metaOpt`. We will use particle swarm optimization with a swarm size of 30 and 400 iterations to find the design
 
-Call to find the optimal design.
-```{r}
+```{r, results='hide'}
 out = nlodm(
     model = NULL,
     grad_fun = grad.loglogistic,
@@ -72,6 +79,208 @@ out = nlodm(
   )
 ```
 
+The `nlodm` function returns a list containing the design with some rounding and the equivalence theorem plot to check for optimality.
+
+```{r}
+out$design
+```
+
+```{r}
+out$plot
+```
+
+The plot indicates the design is optimal among all designs on this dose range.
+
+If you want to use the original unrounded doses and weights, we can access the raw output from the optimizer. This will also give access to how long the optimizer took to find the optimum.
+
+```{r}
+out$raw
+```
+
+## Design efficiency
+
+It is useful in practice to see how a candidate design compares to the optimal design. This can be done using design efficiency. For D-optimality, D-efficiency is defined as
+
+$$
+ \operatorname{eff}_D(\xi) = \left(\frac{\text{det}(\Psi_D(M(\xi)))}{\text{det}(\Psi_D(M(\xi_D)))}\right)^{1/p}
+$$
+
+where $\xi_D$ is the D-optimal design and $p$ is the number of parameters in the model.
+
+We can use the `compute_eff` function to compute the design efficiency. As an example, we compare the efficiency of a uniform design to the D-optimal design obtained in the last section.
+
+```{r}
+compute_eff(
+  model = NULL,
+  grad_fun = grad.loglogistic,
+  objective = 'D',
+  theta = c(0.02461,-2.390, 1),
+  d1 = c(0.1, 15, 30),
+  d2 = out$design$x,
+  w1 = c(1 / 3, 1 / 3, 1 / 3),
+  w2 = out$design$w
+)
+```
+
+This result indicates that the uniform design will need twice the sample size to be as effective at estimating the parameters as the D-optimal design.
+
 ## Designs for estimating the benchmark dose
 
+Estimating the benchmark dose (BMD) is the goal of many toxicology experiments. The BMD is the point on the dose response curve that corresponds to a specific increase in risk over the zero dose. See [Haber et. al. (2018)](https://doi.org/10.1080/10408444.2018.1430121) for a review of the BMD. In this section, we will show the basics of how to derive a dual criterion for estimating the BMD and show how to use the `nlmod` function to find the optimal design for estimating the BMD.
+
+There are two ways to measure an increase in risk over the zero dose. Added risk is defined as
+
+$$
+\pi_A(d) = P(d) - P(0).
+$$
+
+Extra risk is defined as
+
+$$
+\pi_E(d) = \frac{P(d) - P(0)}{1 - P(0)}
+$$
+
+For this example, we will assume the logistic model and use the added risk definition. The logistic model is defined as
+
+$$
+P(d) = \frac{1}{1 + \exp(-\beta_0 - \beta_1 d)}
+$$
+
+The BMD for an added risk of $r$ is
+
+$$
+\operatorname{BMD}(r) = \frac{\log\left( \frac{1-r}{1+r \exp(-\beta_0)}\right)}{\beta_1}.
+$$
+
+To derive a design criterion to estimate $BMD(r)$, we can take the gradient with respect to the the regression parameters.
+
+$$
+c = \left(\frac{\partial \operatorname{BMD}(r)}{\partial \beta_0},  \frac{\partial \operatorname{BMD}(r)}{\partial \beta_1}\right)^T
+$$
+
+The numeric vector $c$ can be used to construct a c-optimality objective function
+
+$$
+\Psi_c(M) = c^T M^{-1}c
+$$
+
+In practice, this objective function is not very useful because it will place all the design points at the prior guess for the BMD. A more useful criterion combines the c criterion with the D-optimality criterion to produce a design that has the same number of points as the D-optimal design, but with modified doses and weights to better estimate the BMD.
+
+$$
+\Psi_{CD}^\lambda(M) = \left[ \text{eff}_D(M) \right]^{1-\lambda} \left[\text{eff}_c (M)\right]^\lambda
+$$
+
+Equivalently, we can minimize the convex function
+
+$$
+\Psi_{BMD}^\lambda(M) = \frac{(1-\lambda)}{p} \log (|M|) - \lambda \log \left(c' M^{-1} c \right)
+$$
+
+The parameter $\lambda$ controls the relative importance of each objective, A value of $\lambda$ close to 1 will prioritize the c objective while a value close to 0 will prioritize the D objective. It is recommended to try several values of $\lambda$ in order to find the largest value that will still give a high D-efficiency.
+
+To demonstrate using `nlodm` to find BMD designs, we will find a design for a log-logistic model with an added risk of 0.1. We set $\lambda = 0.5$ as a starting place that can be fine tuned later.
+
+```{r, results='hide'}
+out_bmd = nlodm(
+  model = 'Log-logistic',
+  grad_fun = grad.loglogistic,
+  obj = 'bmd',
+  theta = c(0.02461,-2.390, 1),
+  bound = 30,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+  bmd_type = 'added',
+  risk = 0.1,
+  lambda = 0.5
+)
+```
+
+```{r}
+out_bmd$design
+```
+
+Note that this design is no longer equally weighted like the D-optimal design, but places more weight on the dose closest to the BMD.
+
+```{r}
+out_bmd$plot
+```
+
+We can compare this design to the D-optimal design to get the D-efficiency.
+
+```{r}
+compute_eff(
+  model = NULL,
+  grad_fun = grad.loglogistic,
+  objective = 'D',
+  theta = c(0.02461,-2.390, 1),
+  d1 = out_bmd$design$x,
+  d2 = out$design$x,
+  w1 = out_bmd$design$w,
+  w2 = out$design$w
+)
+```
+
 ## (pseudo) Bayesian designs
+
+In the previous sections, the designs found depended on a prior value for the regression parameters $\beta$. This means that the designs are only optimal if value of $\beta$ is correct. This is unlikely to be the case in practice, since if $\beta$ was known, there would be no need to run the experiment. These designs that depend on singular values of $\beta$ are usually called locally optimal designs.
+
+To address the issue of local optimality, we can assume a prior distribution for $\beta$ and average the objective function over this distribution. If we assume a discrete prior distribution for $\beta$, we get the objective function
+
+$$
+\Psi_B(M) = \sum_j \Psi(M(\xi; \beta_j)) p_j
+$$
+
+where $p_j$ is the prior weight of the jth value of $\beta$ and $\sum_j p_j = 1$. Since $\Psi_B(M)$ is a convex combination of convex functions, the optimality check still holds and we can use the usual graphical check.
+
+Finding Bayesian designs is straightforward using the `nlodm` function. If `theta` is a matrix, with each row corresponding to 1 value of $\theta$, then the criterion will automatically be averaged over the values using the provided weights.
+
+As an example, we will generate a random sample of $\theta$ from a multivariate normal prior and find the Bayesian D-optimal design.
+
+```{r}
+set.seed(1234)
+N = 100
+theta0 = rnorm(N, -1.710, .3)
+theta1 = rnorm(N, 0.09703, .01)
+```
+
+It is difficult to get an idea of the underlying dose response curve by just looking at the parameter values, so we will plot the dose response functions generated from this prior. We will be using a logistic function for this design problem.
+
+```{r}
+step = 30/1000
+xvals = seq(0, 30, step)
+plot(1/(1 + exp(-mean(theta0) - mean(theta1)*xvals)) ~ xvals, col = 'red')
+for (i in 1:N)
+  lines(1/(1 + exp(-theta0[i] - theta1[i]*xvals)) ~ xvals, lty = 2)
+```
+
+Now find the Bayesian D-optimal design assuming that all the prior values are equally likely.
+
+```{r, results='hide'}
+thetam = cbind(theta0, theta1)
+prior_weights = rep(1 / N, N)
+
+out_bayes = nlodm(
+  model = NULL,
+  grad_fun = grad.logistic,
+  obj = 'D',
+  theta = thetam,
+  prior_weights = prior_weights,
+  bound = 30,
+  pts = 4,
+  algorithm = 'PSO',
+  swarm = 30,
+  iter = 200,
+  seed = 1234
+)
+```
+
+```{r}
+out_bayes$design
+```
+
+```{r}
+out_bayes$plot
+```
