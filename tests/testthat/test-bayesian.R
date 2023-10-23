@@ -16,7 +16,8 @@ test_that("basic bayesian D logistic", {
     seed = 1234
   )
 
-  expect_equal(length(out$result$result), 4)
+  expect_equal(length(out$design$x), 2)
+  expect_equal(length(out$raw$result), 4)
   expect_equal(length(out$plot), 9) # ggplot objects are lists of length 9
 
 })
@@ -53,7 +54,8 @@ test_that('Bayesian D logistic from prior', {
   )
   #out$plot
 
-  expect_equal(length(out$result$result), 4)
+
+  expect_equal(length(out$raw$result), 4)
   expect_equal(length(out$plot), 9) # ggplot objects are lists of length 9
 
   # compare to non-bayesian and is different
@@ -107,7 +109,7 @@ test_that('Bayesian D logistic from prior N=100', {
   )
   #out$plot
 
-  expect_equal(length(out$result$result), 4)
+  expect_equal(length(out$raw$result), 4)
   expect_equal(length(out$plot), 9) # ggplot objects are lists of length 9
 
 

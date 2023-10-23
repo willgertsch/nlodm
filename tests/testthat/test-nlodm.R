@@ -15,7 +15,8 @@ test_that('logistic_D', {
   #out$result
   #out$plot
 
-  expect_equal(length(out$result$result), 4)
+  expect_equal(length(out$design$x), 2)
+  expect_equal(length(out$raw$result), 4)
   expect_equal(length(out$plot), 9) # ggplot objects are lists of length 9
 })
 
@@ -35,7 +36,8 @@ test_that('loglogistic_D', {
   #out$result
   #out$plot
 
-  expect_equal(length(out$result$result), 6)
+  expect_equal(length(out$design$x), 3)
+  expect_equal(length(out$raw$result), 6)
   expect_equal(length(out$plot), 9) # ggplot objects are lists of length 9
 })
 
@@ -58,7 +60,8 @@ test_that('bmd log-logistic', {
   #out$result
   #out$plot
 
-  expect_equal(length(out$result$result), 6)
+  expect_equal(length(out$design$x), 3)
+  expect_equal(length(out$raw$result), 6)
   expect_equal(length(out$plot), 9) # ggplot objects are lists of length 9
 })
 
@@ -79,7 +82,8 @@ test_that('A log-logistic', {
   #out$result
   #out$plot
 
-  expect_equal(length(out$result$result), 6)
+  expect_equal(length(out$design$x), 3)
+  expect_equal(length(out$raw$result), 6)
   expect_equal(length(out$plot), 9) # ggplot objects are lists of length 9
 })
 
@@ -99,6 +103,7 @@ test_that('D Weibull', {
   #out$result
   #out$plot
 
-  expect_equal(length(out$result$result), 6)
+  expect_equal(length(out$design$x), 3)
+  expect_equal(length(out$raw$result), 6)
   expect_equal(length(out$plot), 9) # ggplot objects are lists of length 9
 })
