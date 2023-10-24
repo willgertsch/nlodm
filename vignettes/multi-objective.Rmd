@@ -1,0 +1,49 @@
+---
+title: "Finding Multi-objective Designs"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{multi-objective}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(nlodm)
+```
+
+## Introduction
+
+It is often the case that more than one objective must be considered when designing an experiment. For example, when designing an experiment to estimate the benchmark dose (BMD) in toxicology, it is helpful to consider the trade-offs between estimating all of the model parameters and the BMD. In Gertsch and Wong (2023), this was done by combining c and D objectives into a compound objective. Another example comes from [Sanchez, Sarabia, and Ortiz (2012)](https://doi.org/10.1016/j.aca.2012.10.014) where the variance inflation factors of 7 parameters are considered.
+
+There are two major approaches to multi-objective design:
+
+1.  Compound design criteria
+
+2.  Pareto front analysis
+
+We will briefly introduce both of these approaches and give examples of how to use the `nlodm` package to find these designs.
+
+## Compound optimal designs
+
+Introduction
+
+### BMD designs
+
+### Custom compound designs
+
+## Pareto optimal designs
+
+### Introduction to Pareto fronts
+
+### Example: designing for BMD estimation using the Pareto front
+
+### Example: 3 objectives
+
+### Example: 4 objectives
