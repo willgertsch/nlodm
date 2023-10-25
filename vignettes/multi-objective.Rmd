@@ -32,11 +32,53 @@ We will briefly introduce both of these approaches and give examples of how to u
 
 ## Compound optimal designs
 
-Introduction
+The basic idea behind compound design criteria is to construct a criterion from a convex combination of convex objective functions. Let $\Psi_i$, $i = 1, \dots, k$ be $k$ convex design criteria and let $\alpha_i$ be weights such that $\sum_i^k \alpha_i = 1$. A compound criteria can then be defined as
+
+$$
+\Psi(M) = \sum_i^k \alpha_i \Psi_i(M)
+$$
+
+Similar to (pseudo) Bayesian criteria, there is an equivalence theorem that applies these compound criteria, meaning that is possible to check if the design found is optimal.
 
 ### BMD designs
 
+In the single objective vignette for this package, a design criteria was derived for estimating the benchmark dose. This criteria was a combination of D and c-optimality.
+
+$$
+\Psi_{BMD}^\lambda(M) = \frac{(1-\lambda)}{p} \log (|M|) - \lambda \log \left(c' M^{-1} c \right)
+$$
+
+This specific type of dual objective design is implemented in the `nlodm` function.
+
+```{r, results='hide'}
+out_bmd = nlodm(
+  model = 'Log-logistic',
+  grad_fun = grad.loglogistic,
+  obj = 'bmd',
+  theta = c(0.02461,-2.390, 1),
+  bound = 30,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+  bmd_type = 'added',
+  risk = 0.1,
+  lambda = 0.5
+)
+```
+
+```{r}
+out_bmd$design
+```
+
+```{r}
+out_bmd$plot
+```
+
 ### Custom compound designs
+
+A major goal of this package is allow the user to define custom compound design criteria for any number of objectives. We can do this using the `multi_obj` function.
 
 ## Pareto optimal designs
 
