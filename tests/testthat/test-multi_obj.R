@@ -27,7 +27,7 @@ test_that("basic multi_obj", {
   expect_equal(length(result), 16)
 
   # test extraction function
-  pareto_data = extract_nsga2R(result)
+  pareto_data = extract_front(result)
   expect_equal(ncol(pareto_data), 8)
 
   # plot
@@ -64,7 +64,7 @@ test_that("multi obj BMD", {
     verbose = F
   )
 
-  pareto_data = extract_nsga2R(result)
+  pareto_data = extract_front(result)
   p = plot_pareto2d(pareto_data, c("D", "c"))
 
   expect_equal(ncol(pareto_data), 8)

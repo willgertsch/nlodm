@@ -2,7 +2,7 @@
 
 # extract results from nsga2R returned object
 # returns a data frame with the pareto front and decision variables
-extract_nsga2R = function(nsga2R_out) {
+extract_front = function(nsga2R_out) {
 
   num_pts = nsga2R_out$parameterDim/2
   num_obj = nsga2R_out$objectiveDim
