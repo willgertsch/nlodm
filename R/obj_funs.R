@@ -30,3 +30,18 @@ obj.bmd = function(M, param) {
     return(lambda * Cval + (1 - lambda)/p * Dval)
   }
 }
+
+# c-optimality
+# minimize Var(c'theta) = c'M^1c
+obj.c = function(M, param) {
+
+  c = param
+  if (!checkMinv(M))
+    return(-Inf)
+  else {
+    Minv = solve(M)
+    Cval = -suppressWarnings(log(t(c) %*% Minv %*% c)) # note sign flip
+    return(Cval)
+  }
+
+}
