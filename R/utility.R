@@ -111,3 +111,14 @@ get_bmd_grad = function(model, risk_type) {
 
   return(bmd_grad)
 }
+
+# enhanced solve() function that adds 1E-5 to diagonal if matrix is singular
+ridge_solve = function(M) {
+
+  if (checkMinv(M))
+    return(M)
+  else {
+    Mridge = M + diag(1e-5, nrow(M))
+    return(solve(Mridge))
+  }
+}
