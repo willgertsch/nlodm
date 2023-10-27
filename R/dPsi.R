@@ -12,6 +12,13 @@ dPsi.A = function(M, param) {
   return(Minv2)
 }
 
+# c-optimality
+dPsi.c = function(M, param) {
+  c = param
+  Minv = solve(M)
+  return(Minv %*% c %*% t(c) %*% Minv)
+}
+
 # compound D and c
 # see Atkinson book p389
 dPsi.CD = function(M, param) {

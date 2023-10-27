@@ -13,6 +13,7 @@
 # bmd_type: either 'added' or 'extra
 # risk: risk increase for bmd
 # lambda: weighting parameter for bmd designs
+# c: c vector for c-optimal designs
 nlodm = function(
   model = NULL,
   grad_fun,
@@ -27,7 +28,8 @@ nlodm = function(
   seed,
   bmd_type = 'added',
   risk = 0.1,
-  lambda = 0.5
+  lambda = 0.5,
+  c = NULL
   ) {
 
   # get gradient function
@@ -48,6 +50,10 @@ nlodm = function(
     obj_fun = obj.bmd
     c = bmd_grad(risk, theta)
     param = c(lambda, c)
+  }
+  else if (obj == 'c') {
+    param = c
+    obj_fun = obj.c
   }
   else
     stop("Objective not supported")
