@@ -289,3 +289,272 @@ out_bayes$design
 ```{r}
 out_bayes$plot
 ```
+
+## Example 2: designs for the compartmental model
+
+This is example 17.4 from Atkinson (Optimum experimental Designs, with SAS).
+
+The compartmental model is defined as
+
+$$
+\eta(t, \theta) = \theta_3 \left\{ \exp(-\theta_2 t) - \exp(-\theta_1t)\right\}
+$$
+
+for $t \geq 0$, $\theta_1 > 0$, $\theta_2 > 0$, $\theta_3 >0$, and $\theta_1 > \theta_2$. This is a special case of a class of models commonly used in pharmacokinetics. Taking partial derivatives, we get the gradient components
+
+$$
+\frac{\partial\eta(t, \theta)}{\partial \theta_1} = t\theta_3\exp(-\theta_1t)
+$$
+
+$$
+\frac{\partial\eta(t, \theta)}{\partial\theta_2} = -t\theta_3\exp(-\theta_2t)
+$$
+
+$$
+\frac{\partial\eta(t, \theta)}{\partial\theta_3} = \exp(-\theta_2t) - \exp(-\theta_1t)
+$$
+
+We can implement this model using a custom gradient function.
+
+```{r}
+grad.compartmental = function(x, theta) {
+  
+  g1 = x * theta[3] * exp(-theta[1] * x)
+  g2 = -x * theta[3] * exp(-theta[2] * x)
+  g3 = exp(-theta[2] * x) - exp(-theta[1] * x)
+  return(c(g1, g2, g3))
+}
+```
+
+The compartmental model was used to analyze data on the concentration of theophylline in the blood of a horse. The parameter estimates obtained were $\theta_1 = 4.29$, $\theta_2 = 0.0589$, $\theta_3 = 21.80$. Time is measured in minutes. Let's plot against the original data.
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+theta = c(4.29, 0.0589, 21.80)
+ex1.5_dat = data.frame(
+  t = c(0.166, 0.33, 0.5, 0.666, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12, 24, 30, 48),
+  conc = c(10.1, 14.8, 19.9, 22.1, 20.8, 20.3, 19.7, 18.9, 17.3, 16.1, 15.0, 14.2,
+           13.2, 12.3, 10.8, 6.5, 4.6, 1.7)
+) %>%
+  mutate(
+    y = theta[3]*(exp(-theta[2]*t) - exp(-theta[1]*t))
+  )
+
+ggplot(ex1.5_dat, aes(x = t, y = conc)) +
+  geom_point() +
+  geom_line(aes(x = t, y=y)) + 
+  scale_x_log10() +
+  theme_bw()
+```
+
+Let's find the locally D-optimal design.
+
+```{r}
+out_D = nlodm(
+  model = NULL,
+  grad_fun = grad.compartmental,
+  obj = 'D',
+  theta = theta,
+  bound = max(ex1.5_dat$t),
+  pts = 3,
+  algorithm = 'DE',
+  iter = 300,
+  swarm = 30,
+  seed = 1048
+)
+```
+
+```{r}
+out_D$design
+```
+
+```{r}
+out_D$plot + scale_x_log10() + labs(x = "log10(time)")
+```
+
+The optimal design is to take equal numbers of samples at t=0.23, 1.39, and 18.40 minutes.
+
+Now let's find a few c-optimal designs to estimate interesting quantities. First, the area under the curve (AUC). For this model, the AUC is
+
+$$
+\text{AUC} = \int_0^\infty \eta(t, \theta)dt = \theta_3\left(\frac{1}{\theta_2} - \frac{1}{\theta_1}\right) = g_1(\theta).
+$$
+
+We are also interesting the time to maximum concentration, which is
+
+$$
+t_{max} = \frac{\log\theta_1-\log\theta_2}{\theta_1 - \theta_2} = g_2(\theta).
+$$
+
+Finally, we are interested in the maximum concentration
+
+$$
+\eta(t_{max}, \theta) = \dots = g_3(\theta)
+$$
+
+To find the c-vector for each of these problems, we can take the gradient of the $g$ function. We will skip this step and use the results from p263 of Atkinson.
+
+```{r}
+out_auc = nlodm(
+  grad_fun = grad.compartmental,
+  obj = 'c',
+  theta = theta,
+  bound = max(ex1.5_dat$t),
+  pts = 3,
+  algorithm = 'DE',
+  iter = 300,
+  swarm = 30,
+  seed = 1108,
+  c = c(theta[3]/theta[1]^2, -theta[3]/theta[2]^2, 1/theta[2]-1/theta[1])
+)
+```
+
+```{r}
+out_auc$plot
+```
+
+```{r}
+out_auc$design
+```
+
+```{r}
+a = theta[1] - theta[2]
+b = log(theta[1]/theta[2])
+out_tmax = nlodm(
+  grad_fun = grad.compartmental,
+  obj = 'c',
+  theta = theta,
+  bound = max(ex1.5_dat$t),
+  pts = 2,
+  algorithm = 'DE',
+  iter = 300,
+  swarm = 30,
+  seed = 1118,
+  c = c((a/theta[1] - b)/a^2, (b-a/theta[2])/a^2, 0)
+)
+```
+
+```{r}
+out_tmax$plot
+```
+
+```{r}
+out_tmax$design
+```
+
+```{r}
+tmax = b/a
+e1 = exp(-theta[1]*tmax)
+e2 = exp(-theta[2]*tmax)
+f = theta[1]*e1 - theta[2]*e2
+out_ymax = nlodm(
+  grad_fun = grad.compartmental,
+  obj = 'c',
+  theta = theta,
+  bound = max(ex1.5_dat$t),
+  pts = 1,
+  algorithm = 'DE',
+  iter = 300,
+  swarm = 30,
+  seed = 1121,
+  c = c(theta[3]*(e1*tmax+f*((a/theta[1] - b)/a^2)),
+        theta[3]*(-e2*tmax + f*((b-a/theta[2])/a^2)),
+        e2 - e1)
+)
+```
+
+```{r}
+out_ymax$plot
+```
+
+```{r}
+out_ymax$design
+```
+
+According to Atkinson, these designs all have fewer than 3 design points, which means they are impossible to find using the standard c-criterion. Let's try the Bayesian designs suggested later in the book in section 18.4.
+
+Set up prior on $\theta_1$ and $\theta_2$, this is prior II from Atkinson that keeps the requirement that $\theta_1 > \theta_2$. Note that the book flips $\theta_1$ and $\theta_2$ in this chapter for some reason.
+
+```{r}
+set.seed(326)
+N = 10
+theta2s = runif(N, .05884-.01, .05884+.01)
+theta1s = runif(N, theta2s, 4.298 + 4.0)
+theta3s = rep(21.8, N)
+thetam = matrix(c(theta1s, theta2s, theta3s), nrow = N)
+```
+
+Plot prior distribution of curves.
+
+```{r}
+library(tidyr)
+thetam %>%
+  cbind(matrix(rep(ex1.5_dat$t, N), nrow=N, byrow = T)) %>%
+  as.data.frame() %>%
+  mutate(sample = 1:N) %>%
+  rename(
+    theta1 = V1,
+    theta2 = V2,
+    theta3 = V3
+  ) %>%
+  pivot_longer(cols = starts_with("V"), values_to = 'time') %>%
+  mutate(
+    y = theta3*(exp(-theta2*time) - exp(-theta1*time))
+  ) %>%
+  ggplot(aes(x = time, y = y, color = as.factor(sample))) +
+  geom_point() + geom_line() + theme_bw() +
+  scale_x_log10()
+  
+```
+
+Now find the Bayesian designs using these prior values. Starting with Bayesian D-optimal.
+
+```{r}
+out_D_bayes = nlodm(
+  model = NULL,
+  grad_fun = grad.compartmental,
+  obj = 'D',
+  theta = thetam,
+  bound = max(ex1.5_dat$t),
+  pts = 6,
+  algorithm = 'DE',
+  iter = 1000,
+  swarm = 50,
+  seed = 1048,
+  prior_weights = rep(1/N, N)
+)
+```
+
+```{r}
+out_D_bayes$plot
+```
+
+```{r}
+out_D_bayes$design
+```
+
+```{r}
+out_auc_bayes = nlodm(
+  grad_fun = grad.compartmental,
+  obj = 'c',
+  theta = thetam,
+  bound = max(ex1.5_dat$t),
+  pts = 6,
+  algorithm = 'DE',
+  iter = 2000,
+  swarm = 50,
+  seed = 409,
+  c = c(theta[3]/theta[1]^2, -theta[3]/theta[2]^2, 1/theta[2]-1/theta[1]),
+  prior_weights = rep(1/N, N)
+)
+```
+
+```{r}
+out_auc_bayes$plot
+```
+
+```{r}
+out_auc_bayes$design
+```
