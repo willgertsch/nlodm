@@ -45,3 +45,19 @@ obj.c = function(M, param) {
   }
 
 }
+
+# c-epsilon optimality
+# same as c-optimality, but add a ridge term to M to make inversion possible
+obj.c_e = function(M, param) {
+
+  c = param
+  Mridge = M + diag(1e-5, nrow(M))
+  if (!checkMinv(Mridge))
+    return(-Inf)
+  else {
+    Minv = solve(Mridge)
+    #Cval = -suppressWarnings(log(t(c) %*% Minv %*% c)) # note sign flip
+    Cval = -t(c) %*% Minv %*% c
+    return(Cval)
+  }
+}

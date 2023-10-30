@@ -27,6 +27,11 @@ plot_sens = function(x, w, problem, M.list, grad_fun, prior_weights = c(1)) {
     dPsi = dPsi.c
     param = problem$param
   }
+  else if (problem$obj == 'c_e') {
+    # using c-optimality version for now
+    dPsi = dPsi.c
+    param = problem$param
+  }
   else {
     # expand this to handle solving design problems with no verification
     stop("No derivative specified for this objective.")

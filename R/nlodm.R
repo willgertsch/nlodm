@@ -55,6 +55,10 @@ nlodm = function(
     param = c
     obj_fun = obj.c
   }
+  else if (obj == 'c_e') {
+    param = c
+    obj_fun = obj.c_e
+  }
   else
     stop("Objective not supported")
 
@@ -95,6 +99,11 @@ nlodm = function(
 
   #M = M.nonlinear(x, w, theta, grad_fun)
   M.list = M.nonlinear.list(x, w, theta, grad_fun)
+
+  # add ridge if c_e objective
+  if (obj == 'c_e')
+    M.list = lapply(M.list, function(M) M + diag(1e-5, nrow(M)))
+
   problem = list(bound = bound, obj = obj, theta = theta, param = param)
   p = plot_sens(x, w, problem, M.list, grad_fun, prior_weights)
 
