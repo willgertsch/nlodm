@@ -25,12 +25,12 @@ obj_fun_factory = function(grad_fun, obj_fun, theta, param, prior_weights = c(1)
 
     M_fun = M.nonlinear # always using general nonlinear matrix
 
-    # average over prior theta values
+    # average over prior theta values and parameter values
     obj_value = 0
     p = nrow(theta)
     for (i in 1:p) {
       obj_value = obj_value +
-        obj_fun(M_fun(x, w, theta[i, ], grad_fun), param) * prior_weights[i]
+        obj_fun(M_fun(x, w, theta[i, ], grad_fun), as.vector(param[i, ])) * prior_weights[i]
     }
 
 

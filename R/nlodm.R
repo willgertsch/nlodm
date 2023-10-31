@@ -35,24 +35,63 @@ nlodm = function(
   # get gradient function
   grad_fun = get_grad(model, grad_fun)
 
+
+  # if theta is vector, convert to matrix
+  if (is.vector(theta))
+    theta = matrix(theta, nrow = 1)
+  # same with c
+  if (is.vector(c))
+    c = matrix(c, nrow = 1)
+
+
+  theta_dims = dim(theta)
+  c_dims = dim(c)
+
   # input checking
   # design objective
   if (obj == "D") {
     obj_fun = obj.D
-    param = c()
+    param = matrix(nrow = theta_dims[1], ncol = theta_dims[2])
   }
   else if (obj == "A") {
     obj_fun = obj.A
-    param = c()
+    param = matrix(nrow = theta_dims[1], ncol = theta_dims[2])
   }
   else if (obj == 'bmd') {
     bmd_grad = get_bmd_grad(model, bmd_type)
     obj_fun = obj.bmd
-    c = bmd_grad(risk, theta)
-    param = c(lambda, c)
+
+    # deal with case of multiple theta values
+    # c is computed for each value of theta
+    # lambda remains constant
+    if (theta_dims[1] == 1)
+      c = matrix(bmd_grad(risk, theta), nrow = 1)
+    if (theta_dims[1] > 1)
+      c = t(apply(theta, 1, function(theta_i) bmd_grad(risk, theta_i)))
+
+    #param = c(lambda, c)
+    param = cbind(rep(lambda, theta_dims[1]), c)
   }
   else if (obj == 'c') {
-    param = c
+
+    # if c is a single row, duplicate for all theta
+    # error if c has more rows than theta
+    # take first value only if not enough values supplied
+    if (c_dims[1] == 1)
+    {
+      cat('nlodm: Only 1 value of c vector supplied. This will be duplicated for all theta.\n')
+      param = matrix(rep(c, theta_dims[1]), nrow = theta_dims[1], byrow = T)
+    }
+    else if (c_dims[1] > theta_dims[1])
+      stop('more c values supplied than values of theta')
+    else if (c_dims[1] > 1 & c_dims[1] < theta_dims[1])
+    {
+      cat('nlodm: More than one 1 c vector supplied, but number still does not match number of supplied theta. First c vector only will be used.\n')
+      param = matrix(rep(c[1, ], theta_dims[1]), nrow = theta_dims[1], byrow = T)
+    }
+    else
+      param = c
+
     obj_fun = obj.c
   }
   else if (obj == 'c_e') {
@@ -62,9 +101,6 @@ nlodm = function(
   else
     stop("Objective not supported")
 
-  # if theta is vector, convert to matrix
-  if (is.vector(theta))
-    theta = matrix(theta, nrow = 1)
 
   # objective function
   obj_fun_M = obj_fun_factory(grad_fun, obj_fun, theta, param, prior_weights)
@@ -104,6 +140,7 @@ nlodm = function(
   if (obj == 'c_e')
     M.list = lapply(M.list, function(M) M + diag(1e-5, nrow(M)))
 
+  # generate equivalence theorem plot
   problem = list(bound = bound, obj = obj, theta = theta, param = param)
   p = plot_sens(x, w, problem, M.list, grad_fun, prior_weights)
 

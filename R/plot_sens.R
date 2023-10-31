@@ -12,11 +12,11 @@ plot_sens = function(x, w, problem, M.list, grad_fun, prior_weights = c(1)) {
   # select derivative function for sensitivity function
   if (problem$obj == "D") {
     dPsi = dPsi.D
-    param = NULL
+    param = problem$param
   }
   else if (problem$obj == "A") {
     dPsi = dPsi.A
-    param = NULL
+    param = problem$param
   }
   else if (problem$obj == "bmd") {
 
@@ -46,6 +46,7 @@ plot_sens = function(x, w, problem, M.list, grad_fun, prior_weights = c(1)) {
   for (i in 1:p) {
     M_i = M.list[[i]]
     theta_i = problem$theta[i, ]
+    param_i = problem$param[i, ]
     # check first if matrix is invertible and then invert
     if (!checkMinv(M_i)) {
       # using y=1 to denote matrix singularity
@@ -54,7 +55,7 @@ plot_sens = function(x, w, problem, M.list, grad_fun, prior_weights = c(1)) {
     else {
       #Minv = solve(M_i)
       yvals = yvals +
-        sapply(xvals, sens, grad_fun, dPsi, M_i, theta_i, param) * prior_weights[i]
+        sapply(xvals, sens, grad_fun, dPsi, M_i, theta_i, param_i) * prior_weights[i]
     }
   }
 
