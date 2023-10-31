@@ -396,15 +396,19 @@ $$
 
 To find the c-vector for each of these problems, we can take the gradient of the $g$ function. We will skip this step and use the results from p263 of Atkinson.
 
+A major issue with these c-optimal designs (and c-optimal designs in general) is that they have fewer points than what is needed to fit the model. As a work around, Atkinson uses the criterion $$
+\Psi_{c}^\epsilon(M) = c^T(M + \epsilon I)^{-1}c
+$$ where $\epsilon$ is some small positive value, such as 1E-5. This solves the issue of $M$ not being invertible. This criterion is available using the `'c_e'` option.
+
 ```{r}
 out_auc = nlodm(
   grad_fun = grad.compartmental,
-  obj = 'c',
+  obj = 'c_e',
   theta = theta,
   bound = max(ex1.5_dat$t),
-  pts = 3,
+  pts = 2,
   algorithm = 'DE',
-  iter = 300,
+  iter = 500,
   swarm = 30,
   seed = 1108,
   c = c(theta[3]/theta[1]^2, -theta[3]/theta[2]^2, 1/theta[2]-1/theta[1])
@@ -424,12 +428,12 @@ a = theta[1] - theta[2]
 b = log(theta[1]/theta[2])
 out_tmax = nlodm(
   grad_fun = grad.compartmental,
-  obj = 'c',
+  obj = 'c_e',
   theta = theta,
   bound = max(ex1.5_dat$t),
   pts = 2,
   algorithm = 'DE',
-  iter = 300,
+  iter = 500,
   swarm = 30,
   seed = 1118,
   c = c((a/theta[1] - b)/a^2, (b-a/theta[2])/a^2, 0)
@@ -451,12 +455,12 @@ e2 = exp(-theta[2]*tmax)
 f = theta[1]*e1 - theta[2]*e2
 out_ymax = nlodm(
   grad_fun = grad.compartmental,
-  obj = 'c',
+  obj = 'c_e',
   theta = theta,
   bound = max(ex1.5_dat$t),
   pts = 1,
   algorithm = 'DE',
-  iter = 300,
+  iter = 500,
   swarm = 30,
   seed = 1121,
   c = c(theta[3]*(e1*tmax+f*((a/theta[1] - b)/a^2)),
@@ -473,7 +477,7 @@ out_ymax$plot
 out_ymax$design
 ```
 
-According to Atkinson, these designs all have fewer than 3 design points, which means they are impossible to find using the standard c-criterion. Let's try the Bayesian designs suggested later in the book in section 18.4.
+These designs all have fewer than 3 design points, which means we had to result to using the modified c-criterion. Let's try the Bayesian designs suggested later in the book in section 18.4.
 
 Set up prior on $\theta_1$ and $\theta_2$, this is prior II from Atkinson that keeps the requirement that $\theta_1 > \theta_2$. Note that the book flips $\theta_1$ and $\theta_2$ in this chapter for some reason.
 
@@ -541,12 +545,12 @@ out_auc_bayes = nlodm(
   obj = 'c',
   theta = thetam,
   bound = max(ex1.5_dat$t),
-  pts = 6,
+  pts = 3,
   algorithm = 'DE',
-  iter = 2000,
+  iter = 1000,
   swarm = 50,
   seed = 409,
-  c = c(theta[3]/theta[1]^2, -theta[3]/theta[2]^2, 1/theta[2]-1/theta[1]),
+  c = cbind(thetam[,3]/thetam[,1]^2, -thetam[,3]/thetam[,2]^2, 1/thetam[,2]-1/thetam[,1]),
   prior_weights = rep(1/N, N)
 )
 ```
@@ -558,3 +562,56 @@ out_auc_bayes$plot
 ```{r}
 out_auc_bayes$design
 ```
+```{r}
+a = thetam[,1] - thetam[,2]
+b = log(thetam[,1]/thetam[,2])
+out_tmax_bayes = nlodm(
+  grad_fun = grad.compartmental,
+  obj = 'c',
+  theta = thetam,
+  bound = max(ex1.5_dat$t),
+  pts = 3,
+  algorithm = 'DE',
+  iter = 500,
+  swarm = 50,
+  seed = 1118,
+  c = cbind((a/thetam[,1] - b)/a^2, (b-a/thetam[,2])/a^2, rep(0, nrow(thetam)))
+)
+```
+
+```{r}
+out_tmax_bayes$plot
+```
+```{r}
+out_tmax_bayes$design
+```
+The optimal design is likely still singular.
+
+```{r}
+tmax = b/a
+e1 = exp(-thetam[,1]*tmax)
+e2 = exp(-thetam[,2]*tmax)
+f = thetam[,1]*e1 - thetam[,2]*e2
+out_ymax_bayes = nlodm(
+  grad_fun = grad.compartmental,
+  obj = 'c',
+  theta = thetam,
+  bound = max(ex1.5_dat$t),
+  pts = 4,
+  algorithm = 'DE',
+  iter = 500,
+  swarm = 30,
+  seed = 1121,
+  c = cbind(thetam[,3]*(e1*tmax+f*((a/thetam[,1] - b)/a^2)),
+        thetam[,3]*(-e2*tmax + f*((b-a/thetam[,2])/a^2)),
+        e2 - e1)
+)
+```
+
+```{r}
+out_ymax_bayes$plot
+```
+```{r}
+out_ymax_bayes$design
+```
+Same story with this Bayesian design. The optimal design is likely singular.
