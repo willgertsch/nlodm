@@ -14,6 +14,7 @@
 # risk: risk increase for bmd
 # lambda: weighting parameter for bmd designs
 # c: c vector for c-optimal designs
+# exact: T or F, exact design will be found
 nlodm = function(
   model = NULL,
   grad_fun,
@@ -29,7 +30,8 @@ nlodm = function(
   bmd_type = 'added',
   risk = 0.1,
   lambda = 0.5,
-  c = NULL
+  c = NULL,
+  exact = F
   ) {
 
   # get gradient function
@@ -103,55 +105,85 @@ nlodm = function(
 
 
   # objective function
-  obj_fun_M = obj_fun_factory(grad_fun, obj_fun, theta, param, prior_weights)
+  obj_fun_M = obj_fun_factory(grad_fun, obj_fun, theta, param, prior_weights,
+                              exact)
 
   # set up variable bounds
-  rangeVar = matrix(c(rep(c(0, bound), pts), rep(c(0,1), pts)), nrow = 2)
+  if (exact)
+    rangeVar = matrix(rep(c(0, bound), pts), nrow = 2)
+  else
+    rangeVar = matrix(c(rep(c(0, bound), pts), rep(c(0,1), pts)), nrow = 2)
 
   # algorithm options
   control = list(numPopulation = swarm, maxIter = iter)
+
+  # number of design points
+  if (exact)
+    numVar = pts
+  else
+    numVar = 2 * pts
 
   # find design
   result = metaheuristicOpt::metaOpt(
     obj_fun_M,
     optimType = "MAX",
     algorithm = algorithm,
-    numVar = 2 * pts,
+    numVar = numVar,
     rangeVar,
     control,
     seed = seed
   )
 
-  # check optimality
-  vars = result$result
-  x = vars[1:pts]
-  w = vars[(pts+1):(2*pts)]
+  # process results and return
+  if (exact) {
 
-  # collapse doses if weights are small
-  x = x[w > 1e-5]
-  w = w[w > 1e-5]
-  result$result = c(x, w)
+    # merge doses that are the same to 4 decimal places
+    # table to get counts at each dose
+    x = as.data.frame(table(round(result$result, 4)))
+
+    design = list(
+      x = as.numeric(levels(x$Var1))[x$Var1],
+      n = x$Freq,
+      obj_value = result$optimumValue
+    )
+
+    return(list(design = design, raw = result))
+
+  }
+  else {
+    # check optimality
+    vars = result$result
+    x = vars[1:pts]
+    w = vars[(pts+1):(2*pts)]
+
+    # collapse doses if weights are small
+    x = x[w > 1e-5]
+    w = w[w > 1e-5]
+    result$result = c(x, w)
 
 
-  #M = M.nonlinear(x, w, theta, grad_fun)
-  M.list = M.nonlinear.list(x, w, theta, grad_fun)
+    #M = M.nonlinear(x, w, theta, grad_fun)
+    M.list = M.nonlinear.list(x, w, theta, grad_fun)
 
-  # add ridge if c_e objective
-  if (obj == 'c_e')
-    M.list = lapply(M.list, function(M) M + diag(1e-5, nrow(M)))
+    # add ridge if c_e objective
+    if (obj == 'c_e')
+      M.list = lapply(M.list, function(M) M + diag(1e-5, nrow(M)))
 
-  # generate equivalence theorem plot
-  problem = list(bound = bound, obj = obj, theta = theta, param = param)
-  p = plot_sens(x, w, problem, M.list, grad_fun, prior_weights)
+    # generate equivalence theorem plot
+    problem = list(bound = bound, obj = obj, theta = theta, param = param)
+    p = plot_sens(x, w, problem, M.list, grad_fun, prior_weights)
 
-  # format results for return
-  # order and round doses and weights
-  design = list(
-    x = signif(x[order(x)], 3),
-    w = round(w[order(x)], 3),
-    obj_value = result$optimumValue
-  )
+    # format results for return
+    # order and round doses and weights
+    design = list(
+      x = signif(x[order(x)], 3),
+      w = round(w[order(x)], 3),
+      obj_value = result$optimumValue
+    )
 
-  return(list(design = design, plot = p, raw = result))
+    return(list(design = design, plot = p, raw = result))
+  }
+
+
 
 }

@@ -1,0 +1,90 @@
+---
+title: "Finding Exact Designs"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Finding Exact Designs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(nlodm)
+```
+
+## Introduction
+
+In this package, the default is to find approximate designs of the form
+
+$$
+\xi = \begin{pmatrix} d_1 &\dots &d_k\\w_1 &\dots& w_k\end{pmatrix}
+$$
+
+where $\sum_i^k w_i = 1$ and $w_i = N/n_i$. Using the weights instead of the number of subjects at each dose made it possible to check optimality using the equivalence theorem. However, in practice designs will always need to be exact. When $N$ is large, rounding the optimal approximate design will be good enough, but for small $N$, the performance of the design may significantly deteriorate. This is the case in toxicology where sample sizes tend to be very small.
+
+Finding exact designs is a more difficult optimization problem than finding approximate designs. A common approach in the literature are to discretize the design space into candidate dose values and sequentially add doses. Another approach is to approximate the problem as a mixed-integer second-order cone problem and solve using off the shelf solvers.
+
+A third approach, and the one using in this package, is to assume a fixed sample size $N$ and optimize $N$ continuous dose variables to maximize the criterion. Formally stated, the optimization problem is
+
+$$
+\begin{array}{rrclcl}
+ \max_{d_1, \dots, d_N} & {\Psi(M)}\\
+\textrm{s.t.} & 0 \leq d_i \leq B, \forall i = 1, \dots, N\\
+\end{array}
+$$
+
+After optimal values for the $d_1, \dots, d_N$ are found, dose values are rounded to 4 decimal places and tabulated. The end result is a list of doses along with the number of subjects at each dose. This approach is much simpler than other methods and works best when $N$ is small.
+
+## Exact locally optimal designs for the log-logistic model
+
+We start by finding the locally D-optimal design for log-logistic model with $N=15$.
+
+```{r}
+out_exact = nlodm(
+    model = NULL,
+    grad_fun = grad.loglogistic,
+    obj = 'D',
+    theta = c(0.02461, -2.390, 1),
+    bound = 30,
+    pts = 15,
+    algorithm = 'PSO',
+    swarm = 30,
+    iter = 400,
+    seed = 1234,
+    exact = T
+  )
+```
+
+```{r}
+out_exact$design
+```
+
+Compare with approximate design:
+
+```{r}
+out_approx = nlodm(
+    model = NULL,
+    grad_fun = grad.loglogistic,
+    obj = 'D',
+    theta = c(0.02461, -2.390, 1),
+    bound = 30,
+    pts = 3,
+    algorithm = 'PSO',
+    swarm = 30,
+    iter = 400,
+    seed = 1234,
+    exact = F
+  )
+```
+
+```{r}
+out_approx$design
+```
+
+Both the exact and approximate designs seem to recommend 3 doses, but the weights are different. The approximate design suggests equal weights, but the exact design does not assign subjects equally to each dose.

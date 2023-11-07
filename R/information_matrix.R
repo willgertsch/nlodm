@@ -26,3 +26,15 @@ M.nonlinear.list = function(x, w, theta, grad_fun) {
 
   return(M.list)
 }
+
+# information matrices for finding exact designs
+# general non-linear
+M.nonlinear.exact = function(x, theta, grad_fun) {
+
+  IM = 0
+  for (i in 1:length(x)) {
+    IM_i = grad_fun(x[i], theta) %*% t(grad_fun(x[i],theta))
+    IM = IM + IM_i
+  }
+  IM
+}
