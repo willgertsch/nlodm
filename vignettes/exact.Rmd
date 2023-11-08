@@ -41,7 +41,7 @@ $$
 
 After optimal values for the $d_1, \dots, d_N$ are found, dose values are rounded to 4 decimal places and tabulated. The end result is a list of doses along with the number of subjects at each dose. This approach is much simpler than other methods and works best when $N$ is small.
 
-## Exact locally optimal designs for the log-logistic model
+## Exact locally D-optimal design for the log-logistic model
 
 We start by finding the locally D-optimal design for log-logistic model with $N=15$.
 
@@ -88,3 +88,42 @@ out_approx$design
 ```
 
 Both the exact and approximate designs seem to recommend 3 doses, but the weights are different. The approximate design suggests equal weights, but the exact design does not assign subjects equally to each dose.
+
+## Exact BMD designs
+
+```{r}
+out_bmd_exact = nlodm(
+  model = 'Log-logistic',
+  grad_fun = grad.loglogistic,
+  obj = 'bmd',
+  theta = c(0.02461,-2.390, 1),
+  bound = 30,
+  pts = 15,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+  bmd_type = 'added',
+  risk = 0.1,
+  lambda = 0.5,
+  exact = T
+)
+```
+
+```{r}
+out_bmd_approx = nlodm(
+  model = 'Log-logistic',
+  grad_fun = grad.loglogistic,
+  obj = 'bmd',
+  theta = c(0.02461,-2.390, 1),
+  bound = 30,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+  bmd_type = 'added',
+  risk = 0.1,
+  lambda = 0.5
+)
+```
