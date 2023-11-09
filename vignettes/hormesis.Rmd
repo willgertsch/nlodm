@@ -1,0 +1,149 @@
+---
+title: "Optimal Designs for Detecting Hormesis"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Optimal Designs for Detecting Hormesis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(nlodm)
+```
+
+## Introduction
+
+This vignette recreates the optimal designs found in Dette, Pepelyshev, Wong (2011) and the draft under preparation.
+
+## Models
+
+The Hunt-Bowman model is defined as $$
+\mu(d, \theta) = \begin{cases} c_1d^2 - c_1\tau d + \frac{1}{1+e^{\beta_0}}& 0 \leq d \leq \tau\\
+\frac{1}{1 + e^{\beta_0 - \beta_1(d-\tau)}} & \tau > d\end{cases} 
+$$ The parameter vector is $\theta = (c_1, \tau, \beta_0, \beta_1)^T$.
+
+The gradient is $$
+\nabla \mu(d, \theta) = \begin{cases} (d^2 - \tau d, -c_1d, - \frac{e^{\beta_0}}{(1+e^{\beta_0})^2}, 0)^T & 0 \leq d \leq \tau\\
+\left(0, \beta_1 \frac{e^{\beta_0-\beta_1(d-\tau)}}{(1+e^{\beta_0-\beta_1(d-\tau)})^2}, -\frac{e^{\beta_0-\beta_1(d-\tau)}}{(1+e^{\beta_0-\beta_1(d-\tau)})^2}, \frac{(d-\tau)e^{\beta_0-\beta_1(d-\tau)}}{(1+e^{\beta_0-\beta_1(d-\tau)})^2} \right)^T & \tau > d
+\end{cases}
+$$
+
+Define a custom gradient function:
+
+```{r}
+grad.huntbowman = function(x, theta) {
+  
+  c1 = theta[1]
+  tau = theta[2]
+  b0 = theta[3]
+  b1 = theta[4]
+  
+  if (x <= tau) {
+    return(c(
+      x^2 - tau*x,
+      -c1*x,
+      -exp(b0)/(1+exp(b0))^2,
+      0
+    ))
+  }
+  else if (x > tau) {
+    
+    f = exp(b0 - b1*(x - tau))/(1 + exp(b0-b1*(x-tau)))^2
+    return(c(
+      0,
+      -b1*f,
+      -f,
+      (x - tau) * f
+    ))
+  }
+}
+```
+
+The exp-log model is defined as $$
+\mu(d, \theta) = c_0e^{-c_1d} + \frac{1}{1+e^{\beta_0 - \beta_1d}}
+$$
+
+and the parameter vector is $\theta = (c_0, c_1, \beta_0, \beta_1)^T$.
+
+The gradient is
+
+$$
+\nabla \mu(d, \theta) = \left(e^{-c_1 d}, -c_0 d e^{-c_1d}, -\frac{e^{\beta_0-\beta_1d}}{(1+e^{\beta_0-\beta_1d})^2}, \frac{de^{\beta_0-\beta_1d}}{(1+e^{\beta_0-\beta_1d})^2}\right)^T
+$$
+
+Custom gradient function:
+
+```{r}
+grad.logexp = function(x, theta) {
+  
+  c0 = theta[1]
+  c1 = theta[2]
+  b0 = theta[3]
+  b1 = theta[4]
+  
+  f = exp(b0-b1*x)/(1+exp(b0-b1*x))^2
+  
+  return(c(
+    exp(-c1*x),
+    -c0*x*exp(-c1*x),
+    -f,
+    x*f
+  ))
+}
+```
+
+## Designs for Hunt-Bowman model
+
+Approximate locally D-optimal design:
+
+```{r}
+hb_D = nlodm(
+  grad_fun = grad.huntbowman,
+  obj = 'D',
+  theta = c(170, 0.04, 1.46, 40),
+  bound = 0.15,
+  pts = 4,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+)
+```
+
+```{r}
+hb_D$plot
+```
+
+```{r}
+hb_D$design
+```
+
+Exact locally D-optimal design:
+
+```{r}
+hb_D_exact = nlodm(
+  grad_fun = grad.huntbowman,
+  obj = 'D',
+  theta = c(170, 0.04, 1.46, 40),
+  bound = 0.15,
+  pts = 20,
+  algorithm = 'PSO',
+  swarm = 100,
+  iter = 1000,
+  seed = 1234,
+  exact = T
+)
+```
+
+```{r}
+hb_D_exact$design
+```
+
+## Exp-log model
