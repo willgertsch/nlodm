@@ -15,6 +15,7 @@
 # lambda: weighting parameter for bmd designs
 # c: c vector for c-optimal designs
 # exact: T or F, exact design will be found
+# exact_digits: combine doses up to this number of places
 nlodm = function(
   model = NULL,
   grad_fun,
@@ -31,7 +32,8 @@ nlodm = function(
   risk = 0.1,
   lambda = 0.5,
   c = NULL,
-  exact = F
+  exact = F,
+  exact_digits = 4
   ) {
 
   # get gradient function
@@ -139,7 +141,7 @@ nlodm = function(
 
     # merge doses that are the same to 4 decimal places
     # table to get counts at each dose
-    x = as.data.frame(table(round(result$result, 4)))
+    x = as.data.frame(table(round(result$result, exact_digits)))
 
     design = list(
       x = as.numeric(levels(x$Var1))[x$Var1],
