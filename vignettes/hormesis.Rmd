@@ -101,7 +101,7 @@ grad.logexp = function(x, theta) {
 
 ## Designs for Hunt-Bowman model
 
-Approximate locally D-optimal design:
+### Approximate locally D-optimal design
 
 ```{r}
 hb_D = nlodm(
@@ -125,7 +125,7 @@ hb_D$plot
 hb_D$design
 ```
 
-Exact locally D-optimal design:
+### Exact locally D-optimal design
 
 ```{r}
 hb_D_exact = nlodm(
@@ -146,4 +146,109 @@ hb_D_exact = nlodm(
 hb_D_exact$design
 ```
 
+### Approximate tau-optimal design
+
+```{r}
+hb_tau_approx = nlodm(
+  grad_fun = grad.huntbowman,
+  obj = 'c_e',
+  theta = c(170, 0.04, 1.46, 40),
+  bound = 0.15,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 100,
+  iter = 1000,
+  seed = 3765,
+  exact = F,
+  c = c(0, 1, 0, 0)
+)
+```
+
+```{r}
+hb_tau_approx$plot
+```
+
+```{r}
+hb_tau_approx$design
+```
+
+### Exact tau-optimal design
+
+```{r}
+hb_tau_exact = nlodm(
+  grad_fun = grad.huntbowman,
+  obj = 'c_e',
+  theta = c(170, 0.04, 1.46, 40),
+  bound = 0.15,
+  pts = 20,
+  algorithm = 'DE',
+  swarm = 100,
+  iter = 1000,
+  seed = 3765,
+  exact = T,
+  c = c(0, 1, 0, 0)
+)
+```
+
+```{r}
+hb_tau_exact$design
+```
+
+### Approximate h-optimal design
+
+### Exact h-optimal design
+
 ## Exp-log model
+
+### Approximate locally D-optimal design
+
+```{r}
+el_D = nlodm(
+  grad_fun = grad.logexp,
+  obj = 'D',
+  theta = c(0.15, 89, 3.2, 41),
+  bound = 0.15,
+  pts = 4,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+)
+```
+
+```{r}
+el_D$plot
+```
+
+```{r}
+el_D$design
+```
+
+### Exact locally D-optimal design
+
+```{r}
+el_D_exact = nlodm(
+  grad_fun = grad.logexp,
+  obj = 'D',
+  theta = c(0.15, 89, 3.2, 41),
+  bound = 0.15,
+  pts = 20,
+  algorithm = 'PSO',
+  swarm = 100,
+  iter = 1000,
+  seed = 1234,
+  exact = T
+)
+```
+
+```{r}
+el_D_exact$design
+```
+
+### Approximate tau-optimal design
+
+### Exact tau-optimal design
+
+### Approximate h-optimal design
+
+### Exact h-optimal design
