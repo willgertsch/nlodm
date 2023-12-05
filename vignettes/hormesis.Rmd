@@ -10,7 +10,11 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.asp = 0.8,
+  fig.width = 10,
+  out.width = "100%",
+  fig.align = "center"
 )
 ```
 
@@ -20,7 +24,27 @@ library(nlodm)
 
 ## Introduction
 
-This vignette recreates the optimal designs found in Dette, Pepelyshev, Wong (2011) and the draft under preparation.
+This vignette reproduces the optimal designs found in Dette, Pepelyshev, Wong (2011) and the draft under preparation.
+
+## Objectives
+
+There are two special design criteria for hormesis. Both are special cases of c-optimality.
+
+Let $\tau$ be the hormesis threshold parameter. The $\tau$-optimality criterion minimizes the variance of the estimated $\tau$,
+
+$$
+\Psi_\tau(M) = b^T(\theta)M^{-1}(\xi, \theta)b(\theta)
+$$
+
+where $b(\theta)=\frac{\partial}{\partial\theta}\tau(\theta)$.
+
+The other criterion is for testing for the presence of hormesis and is based on the derivative of the mean function. Let $h(d,\theta) = \frac{\partial f(d, \theta)}{\partial d}$. The h-optimality criterion is
+
+$$
+\Psi_h(M) = h^T(0, \theta)M^{-1}(\xi, \theta)h(0,\theta).
+$$
+
+(This notation is confusing because $f(d,\theta)$ is a vector. What would the proper notation be for this?)
 
 ## Models
 
@@ -66,6 +90,26 @@ grad.huntbowman = function(x, theta) {
 }
 ```
 
+Since $\tau$ is a model parameter, the c-vector for the $\tau$ optimal design is simply
+
+$$
+b(\theta) = (0, 1, 0, 0)^T
+$$
+
+For h-optimal designs, we have
+
+$$
+h(d,\theta) =  \begin{cases} \frac{\partial}{\partial d}(d^2 - \tau d, -c_1d, - \frac{e^{\beta_0}}{(1+e^{\beta_0})^2}, 0)^T & 0 \leq d \leq \tau\\ \frac{\partial}{\partial d}
+\left(0, \beta_1 \frac{e^{\beta_0-\beta_1(d-\tau)}}{(1+e^{\beta_0-\beta_1(d-\tau)})^2}, -\frac{e^{\beta_0-\beta_1(d-\tau)}}{(1+e^{\beta_0-\beta_1(d-\tau)})^2}, \frac{(d-\tau)e^{\beta_0-\beta_1(d-\tau)}}{(1+e^{\beta_0-\beta_1(d-\tau)})^2} \right)^T & \tau > d
+\end{cases}
+$$
+
+$$
+= \begin{cases} (2d - \tau, -c_1, 0, 0)^T & 0 \leq d \leq \tau\\ 
+\left(0, -\frac{\beta_1^2e^{\beta_0+\beta_1(d-\tau)}(e^{\beta_1(d-\tau)}-e^{\beta_0})}{(e^{\beta_1(d-\tau)}+e^{\beta_0})^3}, \frac{\beta_1e^{\beta_0+\beta_1(d-\tau)}(e^{\beta_1(d-\tau)}-e^{\beta_0})}{(e^{\beta_1(d-\tau)}+e^{\beta_0})^3}, \frac{e^{\beta_0+\beta_1(d-\tau)}\left(e^{\beta_0}(\beta_1(d-\tau)+1)+e^{\beta_1(d-\tau)}(\beta_1(\tau-d)+1)\right)}{(e^{\beta_0}+e^{\beta_1(d-\tau)})^3} \right)^T & \tau > d
+\end{cases}
+$$
+
 The exp-log model is defined as $$
 \mu(d, \theta) = c_0e^{-c_1d} + \frac{1}{1+e^{\beta_0 - \beta_1d}}
 $$
@@ -103,7 +147,7 @@ grad.logexp = function(x, theta) {
 
 ### Approximate locally D-optimal design
 
-```{r}
+```{r, results='hide'}
 hb_D = nlodm(
   grad_fun = grad.huntbowman,
   obj = 'D',
@@ -127,7 +171,7 @@ hb_D$design
 
 ### Exact locally D-optimal design
 
-```{r}
+```{r, results='hide'}
 hb_D_exact = nlodm(
   grad_fun = grad.huntbowman,
   obj = 'D',
@@ -148,7 +192,7 @@ hb_D_exact$design
 
 ### Approximate tau-optimal design
 
-```{r}
+```{r, results='hide'}
 hb_tau_approx = nlodm(
   grad_fun = grad.huntbowman,
   obj = 'c_e',
@@ -174,7 +218,7 @@ hb_tau_approx$design
 
 ### Exact tau-optimal design
 
-```{r}
+```{r, results='hide'}
 hb_tau_exact = nlodm(
   grad_fun = grad.huntbowman,
   obj = 'c_e',
@@ -202,7 +246,7 @@ hb_tau_exact$design
 
 ### Approximate locally D-optimal design
 
-```{r}
+```{r, results='hide'}
 el_D = nlodm(
   grad_fun = grad.logexp,
   obj = 'D',
@@ -226,7 +270,7 @@ el_D$design
 
 ### Exact locally D-optimal design
 
-```{r}
+```{r, results='hide'}
 el_D_exact = nlodm(
   grad_fun = grad.logexp,
   obj = 'D',
