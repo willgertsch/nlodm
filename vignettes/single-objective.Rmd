@@ -65,7 +65,7 @@ The design criteria can be chosen by specifying the `obj` argument. Current opti
 
 The `theta` option is for specifying the local parameter values for the model. These values can be obtained from a prior experiment or a reasonable guess based on theory. The values in the example were obtained from an example dataset. Later, we will see how to provide multiple values for theta to find Bayesian designs.
 
-The `pts` and `bound` options control the number of design points and the upper dose limit for the experiment. The package will automatically prune design points with low weight, but cannot add more points if the initial number is too small. Since the number of points in the optimal design tends to match the number of paramters, we set the number of design points equal to 3.
+The `pts` and `bound` options control the number of design points and the upper dose limit for the experiment. The package will automatically prune design points with low weight, but cannot add more points if the initial number is too small. Since the number of points in the optimal design tends to match the number of parameters, we set the number of design points equal to 3.
 
 The `algorithm`, `swarm`, `iter`, and `seed` arguments control the metaheuristic algorithm. The algorithms are supplied by the `metaheuristicOpt` package and you can see what algorithms are available by running `?metaheuristicOpt::metaOpt`. We will use particle swarm optimization with a swarm size of 30 and 400 iterations to find the design
 
@@ -416,7 +416,7 @@ out_auc = nlodm(
 ```
 
 ```{r}
-out_auc$plot
+out_auc$plot + scale_x_log10() + labs(x = "log10(time)")
 ```
 
 ```{r}
@@ -441,7 +441,7 @@ out_tmax = nlodm(
 ```
 
 ```{r}
-out_tmax$plot
+out_tmax$plot + scale_x_log10() + labs(x = "log10(time)")
 ```
 
 ```{r}
@@ -562,6 +562,7 @@ out_auc_bayes$plot
 ```{r}
 out_auc_bayes$design
 ```
+
 ```{r}
 a = thetam[,1] - thetam[,2]
 b = log(thetam[,1]/thetam[,2])
@@ -582,9 +583,11 @@ out_tmax_bayes = nlodm(
 ```{r}
 out_tmax_bayes$plot
 ```
+
 ```{r}
 out_tmax_bayes$design
 ```
+
 The optimal design is likely still singular.
 
 ```{r}
@@ -611,7 +614,9 @@ out_ymax_bayes = nlodm(
 ```{r}
 out_ymax_bayes$plot
 ```
+
 ```{r}
 out_ymax_bayes$design
 ```
+
 Same story with this Bayesian design. The optimal design is likely singular.
