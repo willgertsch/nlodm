@@ -1,4 +1,5 @@
 ---
+(lc()---
 title: "Finding Multi-objective Designs"
 output: rmarkdown::html_vignette
 vignette: >
@@ -16,6 +17,9 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(nlodm)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
 ```
 
 ## Introduction
@@ -90,7 +94,7 @@ An alternative approach that is popular in engineering is to construct a Pareto 
 
 TODO
 
-### Example: designing for BMD estimation using the Pareto front
+### Example 1: designing for BMD estimation using the Pareto front
 
 In previous examples, we looked at dual D and c-optimal designs using a compound criteria. We will be using the $c_\epsilon$ criterion to help avoid matrix singularities. Now let's use a true multi-objective optimization approach and generate a Pareto front for these 2 objectives.
 
@@ -167,6 +171,7 @@ out_ce = nlodm(
 ```
 
 ```{r}
+
 D_obj = obj_fun_factory(grad.loglogistic, obj.D, matrix(theta,nrow=1), param=c())
 ce_obj = obj_fun_factory(grad.loglogistic, obj.c_e, matrix(theta,nrow=1), 
                          param=matrix(bmd_grad(0.1, theta), nrow = 1))
@@ -177,6 +182,86 @@ plot_pareto2d(pareto_data, c("D", "c_e")) +
   annotate('point', -D_obj(out_bmd$raw$result), y = -ce_obj(out_bmd$raw$result), color = 'purple')
 ```
 
-### Example: 3 objectives
+This plot shows the location of the single objective optimal designs on the Pareto front, along with the compound design found earlier.
 
-### Example: 4 objectives
+### Example 2: dealing with parameter locality
+
+Suppose we assume that the dose response relationship can take on 2 possible shapes.
+
+```{r}
+theta1 = c(0.02461, -2.390, 1)
+theta2 = c(.01, -1.390, 1.5)
+x = seq(0.001, 30)
+y1 = theta1[1] + (1-theta1[1])/(1+exp(-theta1[2]-theta1[3]*log(x)))
+y2 = theta2[1] + (1-theta2[1])/(1+exp(-theta2[2]-theta2[3]*log(x)))
+cbind(x, y1, y2) %>% as.data.frame() %>%
+  pivot_longer(cols = starts_with('y'), names_to = 'curve', values_to = 'response') %>%
+  ggplot(aes(x = x, y = response, color = curve)) +
+  geom_line()
+```
+
+We are interested in parameter estimation in both cases, so we will find the Pareto front of D-optimal designs.
+
+```{r}
+grad_funs = list(grad.loglogistic, grad.loglogistic)
+obj_funs = list(obj.D, obj.D)
+thetas = list(
+    theta1,
+    theta2
+  )
+params = list(
+    c(),
+    c()
+  )
+```
+
+```{r}
+result = multi_obj(
+    grad_funs = grad_funs,
+    obj_funs = obj_funs,
+    thetas = thetas,
+    params = params,
+    type = 'pareto',
+    bound = 30,
+    pts = 3,
+    swarm = 200,
+    maxiter = 2000,
+    verbose = F
+  )
+```
+
+```{r}
+pareto_data = extract_front(result)
+plot_pareto2d(pareto_data, c("D1", "D2"))
+```
+
+Look at top 3 results for each objective.
+
+```{r}
+arrange(pareto_data, obj1) %>% head(3)
+```
+
+```{r}
+arrange(pareto_data, obj2) %>% head(3)
+```
+
+These designs do not quite reach D-optimality since the designs are not equally weighted, but they are close. We can use this best values to rescale the objective values and then set a cut off for the designs that are at least 80% of the maximum on each objective. (Note: this is not design efficiency)
+
+```{r}
+pareto_data %>%
+  mutate(
+    obj1_eff = obj1/max(obj1),
+    obj2_eff = obj2/max(obj2)
+  ) %>%
+  filter(obj1_eff >= .83, obj2_eff >= .83)
+```
+
+We were able to identify many designs that attained at least 80% of the maximum value on each objective. The dose levels in this multi-objective design are very different compared to the single objective designs. Most notably, the max dose group is at around 15 while the design for the first cufve has a max of 30 and the designs for the second curve has a max of 6.
+
+### Example 3: measures of hormesis
+
+### Example 4: multiple different models
+
+### Example 5: multiple measures of effect
+
+BMD and EC50 for example.
