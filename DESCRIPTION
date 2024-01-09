@@ -14,7 +14,8 @@ Imports:
     ecr,
     ggplot2,
     metaheuristicOpt,
-    nsga2R
+    nsga2R,
+    shiny
 Suggests: 
     knitr,
     rmarkdown,

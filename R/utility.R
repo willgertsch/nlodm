@@ -51,6 +51,24 @@ grad_selector = function(model) {
   return(grad_fun)
 }
 
+# input a string name of a design criterion and get an objective function
+get_obj = function(obj) {
+
+  if (obj == 'D')
+    return(obj.D)
+  else if (obj == 'A')
+    return(obj.A)
+  else if (obj == 'c')
+    return(obj.c)
+  else if (obj == 'c_e')
+    return(obj.c_e)
+  else if (obj.bmd == 'bmd')
+    return(obj.bmd)
+  else
+    stop('get_obj: Objective not defined.')
+}
+
+
 # input switching for using predefined or custom model
 # will always default to grad_fun if supplied
 get_grad = function(model, grad_fun) {
@@ -121,4 +139,11 @@ ridge_solve = function(M) {
     Mridge = M + diag(1e-5, nrow(M))
     return(solve(Mridge))
   }
+}
+
+# convert raw text input to a vector of parameter values
+# pulling this out into its own function because input checking could be complex
+# useful in multiple places where there is text input
+process_theta = function(text) {
+  as.numeric(strsplit(text, ",")[[1]])
 }
