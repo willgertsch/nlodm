@@ -62,7 +62,7 @@ get_obj = function(obj) {
     return(obj.c)
   else if (obj == 'c_e')
     return(obj.c_e)
-  else if (obj.bmd == 'bmd')
+  else if (obj == 'bmd')
     return(obj.bmd)
   else
     stop('get_obj: Objective not defined.')
@@ -146,4 +146,156 @@ ridge_solve = function(M) {
 # useful in multiple places where there is text input
 process_theta = function(text) {
   as.numeric(strsplit(text, ",")[[1]])
+}
+
+# function that displays latex formulas for models in app
+model_display = function(model) {
+
+  if (model == "Hill")
+    "$$ P(d) = \\theta_1 + \\frac{(\\theta_2 - \\theta_2 \\theta_1)}{1 + \\exp(-\\theta_3 - \\theta_4\\log (d))} $$"
+  # else if (model == "Gamma") # don't know how to do this => Elvis' paper reparameterizes
+  #   "$$ P(d) = $$"
+  else if (model == "Logistic")
+    "$$ P(d) = \\frac{1}{1 + \\exp(-\\theta_1 - \\theta_2 d)} $$"
+  else if (model == "Logistic quadratic")
+    "$$P(d) = \\frac{1}{1 + \\exp(-\\theta_1 - \\theta_2 d - \\theta_3 d^2)}$$"
+  else if (model == "Logistic cubic")
+    "$$P(d) = \\frac{1}{1 + \\exp(-\\theta_1 - \\theta_2 d - \\theta_3 d^2 - \\theta_4 d^3)}$$"
+  else if (model == "Log-logistic")
+    "$$ P(d) = \\theta_1 +  \\frac{1-\\theta_1}{1 + \\exp(-\\theta_2- \\theta_3 \\log d)}$$"
+  else if (model == "Log-probit")
+    "$$ P(d) = \\theta_1 + (1 - \\theta_1) \\Phi(\\theta_2 + \\theta_3 \\log(d))$$"
+  else if (model == "Probit")
+    "$$P(d)=\\Phi(\\theta_1 + \\theta_2 d)$$"
+  else if (model == "Quantal linear")
+    "$$P(d) = \\theta_1 + (1-\\theta_1)(1-\\exp(-\\theta_2 d))$$"
+  else if (model == "Weibull")
+    "$$P(d) = \\theta_1 + (1-\\theta_1)(1-\\exp(-\\theta_3 d^{\\theta_2}))$$"
+  else if (model == "Multistage 1")
+    "$$P(d) = \\theta_1 + (1-\\theta_1)(1 - \\exp(-\\theta_2 d))$$"
+  else if (model == "Multistage 2")
+    "$$P(d) = \\theta_1 + (1-\\theta_1)(1 - \\exp(-\\theta_2 d - \\theta_3 d^2))$$"
+  else if (model == "Multistage 3")
+    "$$P(d) = \\theta_1 + (1-\\theta_1)(1 - \\exp(-\\theta_2 d - \\theta_3 d^2 - \\theta_4 d^3))$$"
+  else if (model == "Probit")
+    "$$P(d) = \\phi(\\theta_1 + \\theta_2 d)$$"
+  else if (model == "Log-probit")
+    "$$P(d) = \\theta_1 + (1-\\theta_1) \\phi(\\theta_2 + \\theta_3 * \\log(d))$$"
+  else if (model == "4 parameter log-logistic")
+    "$$P(d) = \\theta_1 + \\frac{(\\theta_4 - \\theta_1)}{1 + \\exp(\\theta_2(\\log(d)-\\log(\\theta_3)))}$$"
+  else
+    "Model not supported"
+
+}
+
+# displays example local theta values
+# model: string from model selector
+# returns: string to be displayed by Shiny ui element
+display_example_param = function(model) {
+
+  if (model == "Hill")
+    "EX: \\(\\theta\\) = (0.02201, 0.9034, -2.132, 1)"
+  else if (model == "Logistic")
+    "EX: \\(\\theta\\) = (-1.710, 0.09703)"
+  else if (model == "Logistic quadratic")
+    "EX: \\(\\theta\\) = (-2.52, 0.26, -0.006)"
+  else if (model == "Logistic cubic")
+    "EX: \\(\\theta\\) = (-3.91, 1.56, -0.18, 0.004)"
+  else if (model == "Logistic fractional polynomial") {
+    "EX: \\(\\theta\\) = ()"
+  }
+  else if (model == "Log-logistic")
+    "EX: \\(\\theta\\) = (0.02461, -2.390, 1)"
+  else if (model == "Log-probit")
+    "EX: \\(\\theta\\) = (0.02051, -1.237, 0.5173)"
+  else if (model == "Probit")
+    "EX: \\(\\theta\\) = (-1.051, 0.05948)"
+  else if (model == "Quantal linear")
+    "EX: \\(\\theta\\) = (0.05307, 0.04929)"
+  else if (model == "Weibull")
+    "EX: \\(\\theta\\) = (0.05307, .99, 0.04929)"
+  else if (model == "Multistage 1")
+    "EX: \\(\\theta\\) = (0.05307, 0.04929)"
+  else if (model == "Multistage 2")
+    "EX: \\(\\theta\\) = (0.05307, 0.04929, 0)"
+  else if (model == "Multistage 3")
+    "EX: \\(\\theta\\) = (0.05307, 0.04929, 0, 0)"
+  else if (model == '4 parameter log-logistic')
+    'EX: \\(\\theta\\) = (0.084950, -11.093067 , 12.157339, 0.913343)'
+  else
+    "EX: \\(\\theta\\) = "
+
+
+}
+
+# plotting function for dose response model
+# model: string name of dose response model
+# theta: vector of model parameter values
+# limit: dose limit, will control how much of the dose response function is shown
+# log_dose: if true transform the x-axis
+# returns: a ggplot of the dose response function
+plot_response = function(model, theta, limit, log_dose = F) {
+
+  # generate dose levels
+  x = seq(0.01, limit, length.out=100)
+
+  # add additional resolution close to 0 to help with log transform
+  x = c(x, seq(.001, .1, length.out=20))
+
+  # compute response using appropriate model function
+  if (model == "Logistic")
+    y = 1/(1 + exp(-theta[1] - theta[2]*x))
+  else if (model == "Log-logistic")
+    y = theta[1] + (1-theta[1])/(1+exp(-theta[2]-theta[3]*log(x)))
+  else if (model == "Weibull")
+    y = theta[1] + (1 - theta[1])*(1 - exp(-theta[3]*x^theta[2]))
+  else if (model == "Multistage 1")
+    y = theta[1] + (1-theta[1])*(1-exp(-theta[2]*x))
+  else if (model == "Multistage 2")
+    y = theta[1] + (1-theta[1])*(1-exp(-theta[2]*x - theta[3]*x^2))
+  else if (model == "Multistage 3")
+    y = theta[1] + (1-theta[1])*(1-exp(-theta[2]*x - theta[3]*x^2 - theta[4]*x^3))
+  else if (model == "Hill")
+    y = theta[1] + (theta[2]-theta[2]*theta[1])/(1+exp(-theta[3]-theta[4]*log(x)))
+  else if (model == "Logistic quadratic")
+    y = 1/(1 + exp(-theta[1] - theta[2]*x - theta[3]*x^2))
+  else if (model == "Logistic cubic")
+    y = 1/(1 + exp(-theta[1] - theta[2]*x - theta[3]*x^2 - theta[4]*x^3))
+  else if (model == "Logistic fractional polynomial") {
+    powers = c(0, theta[4], theta[5])
+    eta = theta[1] + theta[2]*H(2, x, powers) + theta[4]*H(3, x, powers)
+    y = 1/(1+exp(-eta))
+  }
+  else if (model == "Mixture multistage")
+    y = theta[6]*(1-exp(-theta[1]-theta[2]*x-theta[3]*x^2)) + (1-theta[6])*(1-exp(-theta[1]-theta[4]*x - theta[5]*x^2))
+  else if (model == "Probit")
+    y = pnorm(theta[1] + theta[2]*x)
+  else if (model == "Log-probit")
+    y = theta[1] + (1-theta[1])*pnorm(theta[2] + theta[3]*log(x))
+  else if (model == "4 parameter log-logistic")
+    y = theta[1] + (theta[4] - theta[1])/(1 + exp(theta[2]*(log(x)-log(theta[3]))))
+  else
+    y = x
+
+  # plot
+  # scaling dose
+  if (log_dose) {
+    xlabel = "log dose"
+    dose = log(x)
+  }
+  else {
+    xlabel = 'dose'
+    dose = x
+  }
+
+  p = ggplot2::ggplot(mapping = ggplot2::aes(y = y, x = dose)) +
+    ggplot2::geom_line(color = "red") +
+    ggplot2::geom_hline(yintercept = 0) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Dose response") +
+    ggplot2::xlab(xlabel) +
+    ggplot2::ylab("P(dose)")
+
+
+  return(p)
 }

@@ -3,7 +3,9 @@
 # x, w are design point and weight vectors
 # M: list of pre-computed information matrices
 # grad_fun: gradient function
-plot_sens = function(x, w, problem, M.list, grad_fun, prior_weights = c(1)) {
+# binary_response: set to true to adjust for non-constant variance in binomial response
+# dr_fun: dose response function for use with binary response function
+plot_sens = function(x, w, problem, M.list, grad_fun, prior_weights = c(1), binary_response, dr_fun) {
 
   # x values
   step = problem$bound/1000
@@ -55,7 +57,7 @@ plot_sens = function(x, w, problem, M.list, grad_fun, prior_weights = c(1)) {
     else {
       #Minv = solve(M_i)
       yvals = yvals +
-        sapply(xvals, sens, grad_fun, dPsi, M_i, theta_i, param_i) * prior_weights[i]
+        sapply(xvals, sens, grad_fun, dPsi, M_i, theta_i, param_i, binary_response, dr_fun) * prior_weights[i]
     }
   }
 

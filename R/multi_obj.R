@@ -2,7 +2,7 @@
 # supports both compound and pareto designs
 multi_obj = function(grad_funs, obj_funs, thetas, params, type = 'pareto',
                      weights = NULL, bound, pts,
-                     swarm = 50, maxiter = 300, verbose = T) {
+                     swarm = 50, maxiter = 300, verbose = T, exact = F) {
 
   if (type == 'compound') {
 
@@ -33,10 +33,22 @@ multi_obj = function(grad_funs, obj_funs, thetas, params, type = 'pareto',
     #
     # )
 
+    # change bounds and number of points if exact design
+    if (exact) {
+      varNo = pts
+      lowerBounds = rep(0, pts)
+      upperBounds = rep(bound, pts)
+    }
+    else {
+      varNo = pts * 2
+      lowerBounds = rep(0, 2*pts)
+      upperBounds = c(rep(bound, pts), rep(1, pts))
+    }
+
     if (verbose) {
       result = nsga2R::nsga2R(
         fn = multi_obj_fun,
-        varNo = pts * 2,
+        varNo = varNo,
         objDim = length(obj_funs),
         lowerBounds = rep(0, 2*pts),
         upperBounds = c(rep(bound, pts), rep(1, pts)),
@@ -48,8 +60,8 @@ multi_obj = function(grad_funs, obj_funs, thetas, params, type = 'pareto',
     }
     else {
       # suppress output
-       capture.output(
-         result <- nsga2R::nsga2R(
+      capture.output(
+        result <- nsga2R::nsga2R(
           fn = multi_obj_fun,
           varNo = pts * 2,
           objDim = length(obj_funs),

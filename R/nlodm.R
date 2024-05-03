@@ -16,25 +16,33 @@
 # c: c vector for c-optimal designs
 # exact: T or F, exact design will be found
 # exact_digits: combine doses up to this number of places
+# binary_response: set to true to adjust for non-constant variance in binomial response
+# dr_fun: dose response function for use with binary response function
 nlodm = function(
-  model = NULL,
-  grad_fun,
-  obj,
-  theta,
-  prior_weights = c(1),
-  bound,
-  pts,
-  algorithm,
-  swarm,
-  iter,
-  seed,
-  bmd_type = 'added',
-  risk = 0.1,
-  lambda = 0.5,
-  c = NULL,
-  exact = F,
-  exact_digits = 4
-  ) {
+    model = NULL,
+    grad_fun,
+    obj,
+    theta,
+    prior_weights = c(1),
+    bound,
+    pts,
+    algorithm,
+    swarm,
+    iter,
+    seed,
+    bmd_type = 'added',
+    risk = 0.1,
+    lambda = 0.5,
+    c = NULL,
+    exact = F,
+    exact_digits = 4,
+    binary_response = F,
+    dr_fun = NULL
+) {
+
+  if (binary_response & is.null(dr_fun))
+    stop('nlodm: design for a binary response requires a dose response function be specified for the variance adjustment.')
+
 
   # get gradient function
   grad_fun = get_grad(model, grad_fun)
@@ -108,7 +116,7 @@ nlodm = function(
 
   # objective function
   obj_fun_M = obj_fun_factory(grad_fun, obj_fun, theta, param, prior_weights,
-                              exact)
+                              exact, binary_response, dr_fun)
 
   # set up variable bounds
   if (exact)
@@ -165,7 +173,7 @@ nlodm = function(
 
 
     #M = M.nonlinear(x, w, theta, grad_fun)
-    M.list = M.nonlinear.list(x, w, theta, grad_fun)
+    M.list = M.nonlinear.list(x, w, theta, grad_fun, binary_response, dr_fun)
 
     # add ridge if c_e objective
     if (obj == 'c_e')
@@ -173,7 +181,7 @@ nlodm = function(
 
     # generate equivalence theorem plot
     problem = list(bound = bound, obj = obj, theta = theta, param = param)
-    p = plot_sens(x, w, problem, M.list, grad_fun, prior_weights)
+    p = plot_sens(x, w, problem, M.list, grad_fun, prior_weights, binary_response, dr_fun)
 
     # format results for return
     # order and round doses and weights

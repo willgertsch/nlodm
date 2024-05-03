@@ -194,17 +194,17 @@ grad.logprobit = function(x, theta) {
 }
 
 # 4 parameter logistic
-# P(x) = g + (c - g)/(1 + exp(-a - b * log(x)))
+# P(x) = c + (d - c)/(1 + exp(b(log(x)-log(e))))
 grad.loglogistic4 = function(x, theta) {
 
-  g = theta[1]
-  a = theta[2]
-  b = theta[3]
-  c = theta[4]
+  c = theta[1]
+  b = theta[2]
+  e = theta[3]
+  d = theta[4]
 
-  g1 = 1 / (exp(a) * x^b + 1)
-  g2 = (c - g) * exp(-a-b*log(x)) / (exp(-a-b*log(x)) + 1)^2
-  g3 = (c - g) * exp(-a-b*log(x)) * log(x) / (exp(-a-b*log(x)) + 1)^2
-  g4 = 1 / (exp(-a) * x^(-b) + 1)
+  g1 = x^b / (e^b + x^b)
+  g2 = (c-d)*(x/e)^b * log(x/e)/(1+(x/e)^b)^2
+  g3 = -(b*e^(b-1)*x^b*(c-d))/(e^b+x^b)^2
+  g4 = e^b/(e^b+x^b)
   return(c(g1, g2, g3, g4))
 }
