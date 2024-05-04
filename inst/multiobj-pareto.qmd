@@ -1,0 +1,139 @@
+---
+title: "Multi-objective design using Pareto fronts"
+format: html
+editor: visual
+---
+
+```{r setup}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(drc)
+```
+
+## Introduction
+
+Use deguelin data as an example and fit a 4 parameter log-logistic.
+```{r}
+mod = drm(r/n ~ dose, weights=n, data=deguelin, fct=LL.4(), type='binomial')
+```
+
+```{r}
+coef(mod)
+```
+
+```{r}
+pred_data = data.frame(
+  dose = seq(0, 50)
+) %>%
+  mutate(yhat = predict(mod, newdata = data.frame(dose)))
+
+pred_data %>%
+  ggplot(aes(x = dose, y = yhat)) +
+  geom_line(color = 'blue') +
+  geom_point(data=drc::deguelin, aes(x = dose, y = r/n), color = 'black') +
+  theme_bw() +
+  labs(y = 'P(death)', title = 'Effect of deguelin on Macrosiphoniella sanborni')
+```
+
+## Multi-objective optimization
+
+## Designs for multiple criteria
+
+### D and A
+Find single objective designs first.
+```{r}
+D_opt = nlodm(
+  grad_fun = grad.loglogistic4,
+  obj = "D",
+  theta = c(-3.463158, 0.310025, 1.018702, 18.503925),
+  bound = 50,
+  pts = 4,
+  algorithm = 'DE',
+  swarm = 100,
+  iter = 600,
+  seed = 423,
+  binary_response = T,
+  dr_fun = f.loglogistic4
+)
+```
+
+```{r}
+D_opt$plot
+```
+
+```{r}
+D_opt$design
+```
+```{r}
+A_opt = nlodm(
+  grad_fun = grad.loglogistic4,
+  obj = "A",
+  theta = c(-3.463158, 0.310025, 1.018702, 18.503925),
+  bound = 50,
+  pts = 4,
+  algorithm = 'DE',
+  swarm = 100,
+  iter = 600,
+  seed = 423,
+  binary_response = T,
+  dr_fun = f.loglogistic4
+)
+```
+
+```{r}
+A_opt$plot
+```
+
+```{r, results='hide'}
+grad_funs = list(grad.loglogistic4, grad.loglogistic4)
+obj_funs = list(obj.D, obj.A)
+theta = c(-3.463158, 0.310025, 1.018702, 18.503925)
+thetas = list(
+    theta,
+    theta
+  )
+params = list(
+    c(),
+    c()
+  )
+binary_responses = c(T,T)
+dr_funs = list(f.loglogistic4, f.loglogistic4)
+
+result = multi_obj(
+    grad_funs = grad_funs,
+    obj_funs = obj_funs,
+    thetas = thetas,
+    params = params,
+    type = 'pareto',
+    bound = 50,
+    pts = 4,
+    swarm = 100,
+    maxiter = 500,
+    verbose = T,
+    exact = F,
+    binary_responses = binary_responses,
+    dr_funs = dr_funs
+  )
+```
+
+```{r}
+pareto_data = extract_front(result)
+plot_pareto2d(pareto_data, c("D", "A"))
+```
+
+### D and BMD
+
+## Designs with prior information
+
+### 2 prior theta
+
+### 3 prior theta
+
+### 10 prior theta
+
+## Designs with model uncertaintity
+
+### Log-logistic vs multistage
+
+### All the models

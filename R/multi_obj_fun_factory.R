@@ -3,8 +3,11 @@
 # M_fun: information matrix function
 # obj_fun: objective function of information matrix
 # theta: parameter values to pass through to M_fun
-# par: other parameters, such as c values for c objective
-multi_obj_fun_factory = function(grad_funs, obj_funs, thetas, params) {
+# params: other parameters, such as c values for c objective
+# binary_responses: boolean vector telling where a binary response should be assumed
+# dr_funs: list of dose response functions
+multi_obj_fun_factory = function(grad_funs, obj_funs, thetas, params,
+                                 binary_responses, dr_funs) {
 
   # these are used in interface function
   force(grad_funs)
@@ -20,7 +23,7 @@ multi_obj_fun_factory = function(grad_funs, obj_funs, thetas, params) {
   else if (length(params) != d)
     stop("number of additional parameter vectors doesn't match number of objectives")
 
-  # interface called by optimization software: rmoo
+  # interface called by optimization software: nsga2
   # return this function
   function(vars, nobj = d, ...) {
 
@@ -37,11 +40,10 @@ multi_obj_fun_factory = function(grad_funs, obj_funs, thetas, params) {
 
     M_fun = M.nonlinear # always using general nonlinear matrix
 
-    # average over prior theta values
     # call objective functions
     obj_vals = numeric(nobj)
     for (i in 1:length(grad_funs)) {
-      obj_vals[i] = -obj_funs[[i]](M_fun(x, w, thetas[[i]], grad_funs[[i]]), params[[i]])
+      obj_vals[i] = -obj_funs[[i]](M_fun(x, w, thetas[[i]], grad_funs[[i]], binary_responses[i], dr_funs[[i]]), params[[i]])
     }
 
     # deal with missing

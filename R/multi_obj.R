@@ -1,8 +1,18 @@
 # find multi-objective designs
 # supports both compound and pareto designs
+# grad_funs: list of gradient functions
+# obj_funs: list of design criteria
+# thetas: list of model parameter vectors
+# params: list of param vectors
+# binary_response: boolean vector telling where a binary response should be assumed
+# dr_funs: list of dose response functions
 multi_obj = function(grad_funs, obj_funs, thetas, params, type = 'pareto',
                      weights = NULL, bound, pts,
-                     swarm = 50, maxiter = 300, verbose = T, exact = F) {
+                     swarm = 50, maxiter = 300, verbose = T, exact = F,
+                     binary_responses, dr_funs = NULL) {
+#browser()
+  # if (binary_responses & is.null(dr_fun))
+  #   stop('multi_obj: design for a binary response requires a dose response function be specified for the variance adjustment.')
 
   if (type == 'compound') {
 
@@ -11,7 +21,8 @@ multi_obj = function(grad_funs, obj_funs, thetas, params, type = 'pareto',
   else if (type == 'pareto') {
 
     # construct multi-objective function
-    multi_obj_fun = multi_obj_fun_factory(grad_funs, obj_funs, thetas, params)
+    multi_obj_fun = multi_obj_fun_factory(grad_funs, obj_funs, thetas, params,
+                                          binary_responses, dr_funs)
 
 
     # call optimizer

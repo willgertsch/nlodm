@@ -16,7 +16,7 @@
 # c: c vector for c-optimal designs
 # exact: T or F, exact design will be found
 # exact_digits: combine doses up to this number of places
-# binary_response: set to true to adjust for non-constant variance in binomial response
+# binary_responses: set to true to adjust for non-constant variance in binomial response
 # dr_fun: dose response function for use with binary response function
 nlodm = function(
     model = NULL,
