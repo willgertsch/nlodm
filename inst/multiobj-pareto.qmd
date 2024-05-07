@@ -136,9 +136,8 @@ A_opt$design
 ```
 
 ```{r, results='hide'}
-grad_funs = list(grad.loglogistic4, grad.loglogistic4)
+grad_funs = list(grad.loglogistic, grad.loglogistic)
 obj_funs = list(obj.D, obj.A)
-theta = c(-3.463158, 0.310025, 1.018702, 18.503925)
 thetas = list(
     theta,
     theta
@@ -148,7 +147,7 @@ params = list(
     c()
   )
 binary_responses = c(T,T)
-dr_funs = list(f.loglogistic4, f.loglogistic4)
+dr_funs = list(f.loglogistic3.bmds, f.loglogistic3.bmds)
 
 result = multi_obj(
     grad_funs = grad_funs,
@@ -157,10 +156,10 @@ result = multi_obj(
     params = params,
     type = 'pareto',
     bound = 50,
-    pts = 4,
+    pts = 3,
     swarm = 100,
     maxiter = 500,
-    verbose = T,
+    verbose = F,
     exact = F,
     binary_responses = binary_responses,
     dr_funs = dr_funs
@@ -169,9 +168,28 @@ result = multi_obj(
 
 ```{r}
 pareto_data = extract_front(result)
-plot_pareto2d(pareto_data, c("D", "A"))
+plot_pareto2d(pareto_data, c("D", "A")) +
+  geom_vline(xintercept = 7.717531) +
+  geom_hline(yintercept = 1546.254)
 ```
+```{r}
+# pareto front with scaled objective values
+# changes to maximization format
+extract_front(result) %>%
+  mutate(obj1 = 7.717531/obj1, obj2 = 1546.254/obj2) %>%
+  plot_pareto2d(c("D", "A"))
+```
+This plot suggests that getting a good design for A is more difficult.
 
+Suppose we want designs with >0.98 on D and >0.90 on A. These designs are roughly the same so we can just take the one with the best performance on the A objective.
+```{r}
+extract_front(result) %>%
+  mutate(obj1 = 7.717531/obj1, obj2 = 1546.254/obj2) %>%
+  filter(obj1 > 0.98, obj2 > 0.90) %>% 
+  arrange(desc(obj2)) %>%
+  head(1)
+```
+This design no longer has equal weights, but not as extreme as the A optimal design. The highest dose is inbetween the D-optimal highest dose the the A-optimal higest dose.
 
 ### Continuous vs binary response
 ```{r}
