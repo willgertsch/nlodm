@@ -41,6 +41,7 @@ multi_obj_fun_factory = function(grad_funs, obj_funs, thetas, params,
     M_fun = M.nonlinear # always using general nonlinear matrix
 
     # call objective functions
+    # note the sign change is needed because nsga2R minimizes
     obj_vals = numeric(nobj)
     for (i in 1:length(grad_funs)) {
       obj_vals[i] = -obj_funs[[i]](M_fun(x, w, thetas[[i]], grad_funs[[i]], binary_responses[i], dr_funs[[i]]), params[[i]])
