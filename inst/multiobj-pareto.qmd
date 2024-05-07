@@ -177,7 +177,8 @@ plot_pareto2d(pareto_data, c("D", "A")) +
 # changes to maximization format
 extract_front(result) %>%
   mutate(obj1 = 7.717531/obj1, obj2 = 1546.254/obj2) %>%
-  plot_pareto2d(c("D", "A"))
+  plot_pareto2d(c("D", "A")) +
+  geom_smooth(se=F, linetype=2, color='grey')
 ```
 This plot suggests that getting a good design for A is more difficult.
 
@@ -254,7 +255,8 @@ result = multi_obj(
 pareto_data = extract_front(result)
 plot_pareto2d(pareto_data, c("D binary", "D continuous")) +
   geom_vline(xintercept = 7.717531) +# optimal binary
-  geom_hline(yintercept = 12.81728) # optimal continuous
+  geom_hline(yintercept = 12.81728) +# optimal continuous
+  geom_smooth(se = F, linetype = 2, color = 'grey')
 ```
 
 ```{r}
@@ -262,7 +264,8 @@ plot_pareto2d(pareto_data, c("D binary", "D continuous")) +
 # changes to maximization format
 extract_front(result) %>%
   mutate(obj1 = 7.717531/obj1, obj2 = 12.81728/obj2) %>%
-  plot_pareto2d(c("D binary", "D continuous"))
+  plot_pareto2d(c("D binary", "D continuous")) +
+  geom_smooth(se = F, linetype = 2, color = 'grey')
 ```
 From this plot we see that we can get designs with very high efficiency on both objectives. We can get the designs with efficiency requirements on each objectives.
 ```{r}
@@ -274,7 +277,229 @@ extract_front(result) %>%
 It seems that having the high dose at around 27 is a good solution for managing the tradeoffs between a continuous and binary response assumption.
 
 ### D and BMD
+In my previous paper/web-app, I found designs for estimating the BMD using a compound design criteria.
 
+```{r}
+# set lambda = 0.5
+out_compound = nlodm(
+  model = 'Log-logistic',
+  grad_fun = grad.loglogistic,
+  obj = 'bmd',
+  theta = theta,
+  bound = 50,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+  bmd_type = 'extra',
+  risk = 0.1,
+  lambda = 0.5,
+  binary_response = T,
+  dr_fun = f.loglogistic3.bmds
+)
+```
+```{r}
+out_compound$plot
+```
+
+```{r}
+out_compound$design
+```
+We had to choose $\lambda$ in order to get this result. To see how the choice of $\lambda$ affects the design, we can find the design for different values of $\lambda$ and plot the efficiencies.
+```{r}
+lambdas = seq(0, 1, length.out=10)
+bmd_grad = get_bmd_grad("Log-logistic", 'extra')
+c = matrix(bmd_grad(0.1, theta), nrow = 1)
+Dvals = numeric(length(lambdas))
+Cvals = numeric(length(lambdas))
+for (i in 1:length(lambdas)) {
+  
+  # find the design
+  out_i = nlodm(
+  model = 'Log-logistic',
+  grad_fun = grad.loglogistic,
+  obj = 'bmd',
+  theta = theta,
+  bound = 50,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+  bmd_type = 'extra',
+  risk = 0.1,
+  lambda = lambdas[i],
+  binary_response = T,
+  dr_fun = f.loglogistic3.bmds
+  )
+  
+  # save objective values
+  Dvals[i] = eval_crit(
+    out_i$design$x,
+    out_i$design$w,
+    grad.loglogistic,
+    obj.D,
+    theta,
+    c(),
+    T,
+    f.loglogistic3.bmds
+  )
+  
+  Cvals[i] = eval_crit(
+    out_i$design$x,
+    out_i$design$w,
+    grad.loglogistic,
+    obj.c,
+    theta,
+    c,
+    T,
+    f.loglogistic3.bmds
+  )
+}
+```
+
+```{r}
+data.frame(
+  Dvals,
+  Cvals
+) %>%
+  ggplot(aes(x=Dvals, y = Cvals)) +
+  geom_point() + 
+  geom_smooth(se = F, linetype = 2, color = 'grey') +
+  theme_bw() +
+  geom_vline(xintercept = -7.717531)
+```
+
+```{r}
+data.frame(
+  Dvals,
+  Cvals
+) %>%
+  mutate(
+    obj1 = max(Dvals)/Dvals,
+    obj2 = max(Cvals)/Cvals
+  ) %>%
+  ggplot(aes(x = obj1, y = obj2)) +
+  geom_point(color = 'blue') +
+  geom_smooth(se = F, linetype = 2, color = 'grey') +
+  theme_bw()
+```
+
+```{r}
+data.frame(
+  Dvals,
+  Cvals
+) %>%
+  mutate(
+    obj1 = max(Dvals)/Dvals,
+    obj2 = max(Cvals)/Cvals
+  )
+```
+
+Find the c-optimal design for estimating the BMD.
+```{r}
+bmd_grad = get_bmd_grad("Log-logistic", 'extra')
+c = bmd_grad(0.1, theta)
+out_bmd_c = nlodm(
+  model = 'Log-logistic',
+  grad_fun = grad.loglogistic,
+  obj = 'c',
+  c = c,
+  theta = theta,
+  bound = 50,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+  bmd_type = 'extra',
+  risk = 0.1,
+  lambda = 1,
+  binary_response = T,
+  dr_fun = f.loglogistic3.bmds
+)
+```
+```{r}
+out_bmd_c$plot
+```
+```{r}
+out_bmd_c$design
+```
+Now use the Pareto-front approach and compare.
+```{r}
+bmd_grad = get_bmd_grad("Log-logistic", 'extra')
+c = bmd_grad(0.1, theta)
+grad_funs = list(grad.loglogistic, grad.loglogistic)
+obj_funs = list(obj.D, obj.c)
+thetas = list(
+    theta,
+    theta
+  )
+params = list(
+    c(),
+    c
+  )
+binary_responses = c(T,T)
+dr_funs = list(f.loglogistic3.bmds, f.loglogistic3.bmds)
+
+result = multi_obj(
+    grad_funs = grad_funs,
+    obj_funs = obj_funs,
+    thetas = thetas,
+    params = params,
+    type = 'pareto',
+    bound = 50,
+    pts = 3,
+    swarm = 100,
+    maxiter = 500,
+    verbose = F,
+    exact = F,
+    binary_responses = binary_responses,
+    dr_funs = dr_funs
+  )
+```
+
+```{r}
+extract_front(result) %>%
+  plot_pareto2d( c('D', 'BMD')) +
+  geom_vline(xintercept = 7.717531) +
+  geom_hline(yintercept = 6.471296) +
+  geom_smooth(se = F, linetype = 2, color = 'grey')
+```
+```{r}
+extract_front(result) %>%
+  mutate(
+    obj1 = 7.717531/obj1,
+    obj2 = 6.471296/obj2
+  ) %>%
+  plot_pareto2d( c('D', 'BMD')) +
+  geom_smooth(se = F, linetype = 2, color = 'grey')
+```
+From this plot it looks like the D and BMD objectives have similar design needs.
+```{r}
+extract_front(result) %>%
+  mutate(
+    obj1 = 7.717531/obj1,
+    obj2 = 6.471296/obj2
+  ) %>%
+  filter(obj1 > 0.9887, obj2 > 0.99)
+```
+
+Therefore, it seems that is best to design for BMD because the design will still be very good at the D objective.
+
+Compare with compound designs found earlier.
+```{r}
+extract_front(result) %>%
+  mutate(
+    obj1 = 7.717531/obj1,
+    obj2 = 6.471296/obj2
+  ) %>%
+  plot_pareto2d( c('D', 'BMD')) +
+  geom_smooth(se = F, linetype = 2, color = 'grey') +
+  geom_point(data = data.frame(obj1=7.717531/-Dvals, obj2=6.471296/-Cvals), aes(x=obj1, y=obj2), color='red')
+```
+This seems to suggest that the efficiency plots from Cook and Wong (1994) roughly correspond to the Pareto front.
 
 ## Designs with prior information
 

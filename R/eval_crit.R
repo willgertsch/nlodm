@@ -20,7 +20,7 @@ eval_crit = function(x, w, grad_fun, obj_fun, theta, param, binary_response = F,
   if (sum(w) > 1) {
     warning("eval_crit: sum of w is > 1, renormalizing happened")
     S = sum(w)
-    w = w/S
+    w = w/S-0.0000001 # adjust so it doesn't trip the constraint in the objective
   }
 
   if (sum(x==0)>0)
