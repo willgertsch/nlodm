@@ -497,15 +497,192 @@ extract_front(result) %>%
   ) %>%
   plot_pareto2d( c('D', 'BMD')) +
   geom_smooth(se = F, linetype = 2, color = 'grey') +
-  geom_point(data = data.frame(obj1=7.717531/-Dvals, obj2=6.471296/-Cvals), aes(x=obj1, y=obj2), color='red')
+  geom_point(data = data.frame(obj1=7.717531/-Dvals, obj2=6.471296/-Cvals), aes(x=obj1, y=obj2), color='red') +
+geom_smooth(data = data.frame(obj1=7.717531/-Dvals, obj2=6.471296/-Cvals), aes(x=obj1, y=obj2), color='black', se = F)
 ```
 This seems to suggest that the efficiency plots from Cook and Wong (1994) roughly correspond to the Pareto front.
 
 ## Designs with prior information
+The usual optimal design approach for the problem of local parameter values is either Bayesian designs or minimax designs. However, we can also apply a Pareto optimal approach. We will compare 
 
 ### 2 prior theta
+What if the background response is 0? 
+```{r}
+theta1 = theta
+theta2 = c(0.0001, -12.0933906,   4.1368052)
+# have to add a small constant or design is singular
+
+data.frame(
+  dose = seq(0, 50)
+) %>%
+  mutate(
+    yhat1 = f.loglogistic3.bmds(dose, theta1),
+    yhat2 = f.loglogistic3.bmds(dose, theta2)
+  ) %>%
+  ggplot(aes(x = dose)) +
+  geom_line(aes(y = yhat1)) +
+  geom_line(aes(y = yhat2)) +
+  theme_bw() +
+  labs(title = "Dose-response curve variety", y = 'P(death)')
+```
+Start with single objective.
+```{r}
+out_theta1 = nlodm(
+  model = 'Log-logistic',
+  grad_fun = grad.loglogistic,
+  obj = 'D',
+  theta = theta1,
+  bound = 50,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+  binary_response = T,
+  dr_fun = f.loglogistic3.bmds
+)
+```
+
+```{r}
+out_theta2 = nlodm(
+  model = 'Log-logistic',
+  grad_fun = grad.loglogistic,
+  obj = 'D',
+  theta = theta2,
+  bound = 50,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+  binary_response = T,
+  dr_fun = f.loglogistic3.bmds
+)
+```
+
+```{r}
+grad_funs = list(grad.loglogistic, grad.loglogistic)
+obj_funs = list(obj.D, obj.D)
+thetas = list(
+    theta1,
+    theta2
+  )
+params = list(
+    c(),
+    c()
+  )
+binary_responses = c(T,T)
+dr_funs = list(f.loglogistic3.bmds, f.loglogistic3.bmds)
+
+result = multi_obj(
+    grad_funs = grad_funs,
+    obj_funs = obj_funs,
+    thetas = thetas,
+    params = params,
+    type = 'pareto',
+    bound = 50,
+    pts = 3,
+    swarm = 100,
+    maxiter = 500,
+    verbose = F,
+    exact = F,
+    binary_responses = binary_responses,
+    dr_funs = dr_funs
+  )
+```
+
+```{r}
+extract_front(result) %>%
+  mutate(
+    obj1 = obj1,
+    obj2 = obj2
+  ) %>%
+  plot_pareto2d( c('D theta 1', 'D theta 2')) +
+  geom_smooth(se = F, linetype = 2, color = 'grey')
+```
+This plot is difficult to scale because the theta 2 objective crosses positive and negative.
 
 ### 3 prior theta
+Add another theta, this time tweak the slope
+
+```{r}
+theta1 = theta
+theta2 = c(0.0001, -12.0933906,   4.1368052)
+# have to add a small constant or design is singular
+theta3 = c(0.3238014, -15, 4.1368052)
+
+data.frame(
+  dose = seq(0, 50)
+) %>%
+  mutate(
+    yhat1 = f.loglogistic3.bmds(dose, theta1),
+    yhat2 = f.loglogistic3.bmds(dose, theta2),
+    yhat3 = f.loglogistic3.bmds(dose, theta3)
+  ) %>%
+  ggplot(aes(x = dose)) +
+  geom_line(aes(y = yhat1)) +
+  geom_line(aes(y = yhat2)) +
+  geom_line(aes(y = yhat3)) + 
+  theme_bw() +
+  labs(title = "Dose-response curve variety", y = 'P(death)')
+```
+```{r}
+# check the new value
+out_theta3 = nlodm(
+  model = 'Log-logistic',
+  grad_fun = grad.loglogistic,
+  obj = 'D',
+  theta = theta3,
+  bound = 50,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+  binary_response = T,
+  dr_fun = f.loglogistic3.bmds
+)
+```
+
+```{r}
+grad_funs = list(grad.loglogistic, grad.loglogistic, grad.loglogistic)
+obj_funs = list(obj.D, obj.D, obj.D)
+thetas = list(
+    theta1,
+    theta2,
+    theta3
+  )
+params = list(
+    c(),
+    c(),
+    c()
+  )
+binary_responses = c(T,T, T)
+dr_funs = list(f.loglogistic3.bmds, f.loglogistic3.bmds, f.loglogistic3.bmds)
+
+result = multi_obj(
+    grad_funs = grad_funs,
+    obj_funs = obj_funs,
+    thetas = thetas,
+    params = params,
+    type = 'pareto',
+    bound = 50,
+    pts = 3,
+    swarm = 100,
+    maxiter = 500,
+    verbose = F,
+    exact = F,
+    binary_responses = binary_responses,
+    dr_funs = dr_funs
+  )
+```
+
+```{r}
+library(plotly)
+fig = plot_ly(extract_front(result), x = ~obj1, y = ~obj2, z = ~obj3,
+              type = 'scatter3d')
+fig
+```
 
 ### 10 prior theta
 
