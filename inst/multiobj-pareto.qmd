@@ -600,7 +600,17 @@ extract_front(result) %>%
   plot_pareto2d( c('D theta 1', 'D theta 2')) +
   geom_smooth(se = F, linetype = 2, color = 'grey')
 ```
-This plot is difficult to scale because the theta 2 objective crosses positive and negative.
+
+```{r}
+extract_front(result) %>%
+  mutate(
+    obj1 = (max(obj1)-obj1)/(max(obj1)-min(obj1)),
+    obj2 = (max(obj2)-obj2)/(max(obj2)-min(obj2))
+  ) %>%
+  plot_pareto2d( c('D theta 1', 'D theta 2')) +
+  geom_smooth(se = F, linetype = 2, color = 'grey')
+```
+It seems that it is harder to have a design that is efficient for estimating the case when the background dose is 0.
 
 ### 3 prior theta
 Add another theta, this time tweak the slope
@@ -679,15 +689,64 @@ result = multi_obj(
 
 ```{r}
 library(plotly)
-fig = plot_ly(extract_front(result), x = ~obj1, y = ~obj2, z = ~obj3,
+fig = plot_ly(extract_front(result), x = ~scale_obj(obj1), 
+              y = ~scale_obj(obj2), 
+              z = ~scale_obj(obj3),
               type = 'scatter3d')
 fig
 ```
 
+From this plot, it seems that obj1 and obj2 cluster together and obj3 is more different.
+
+```{r}
+extract_front(result) %>%
+  mutate(
+    obj1 = scale_obj(obj1),
+    obj2 = scale_obj(obj2),
+    obj3 = scale_obj(obj3)
+  ) %>%
+ggpairs(columns = 1:3)
+```
+
+This is a very interesting plot that highlights the complexity of analyzing Pareto fronts in dimensions higher than 3. When looking at obj1 vs obj2 and obj1 vs obj3, we see some non-Pareto front shapes. These are the optimal trade-offs, but they don't look optimal because we are not considering all 3 objectives. Is obj2 vs obj3 some special situation because it maintains the Pareto front shape? We see the univariate distributions of efficiencies. For obj1 and obj2, we only really see good and bad solutions. Hard to see how low the design efficiencies would actually be because of the scaling. For obj3, we see that a large proportion of the front is does well at obj3.
+
+```{r}
+# explore the designs
+extract_front(result) %>%
+  mutate(
+    obj1 = scale_obj(obj1),
+    obj2 = scale_obj(obj2),
+    obj3 = scale_obj(obj3)
+  ) %>%
+  arrange((obj3))
+```
+
+The major difference between the (obj1, obj2) cluster and the obj3 cluster is that theta3 requires dose groups (0, 30, 50) while (theta1, theta2) needs (0, 13 or 16, 27 or 30).
+
 ### 10 prior theta
 
-## Designs with model uncertaintity
+## Designs with model uncertainty
+In many cases, we may want to apply multiple models to the data. We want to make sure our design will be efficient for estimating all the models that we want to use.
 
-### Log-logistic vs multistage
+```{r}
+# fit log-logistic and Weibull models to data
+mod1 = drm(r/n ~ dose, weights=n, data=deguelin, fct=LL.3u(), type='binomial')
+mod2 = drm(r/n ~ dose, weights=n, data=deguelin, fct=W1.3u(), type='binomial')
 
-### All the models
+data.frame(
+  dose = seq(0, 50)
+) %>%
+  mutate(
+    yhat1 = predict(mod1, newdata = data.frame(dose)),
+    yhat2 = predict(mod2, newdata = data.frame(dose))
+    ) %>%
+  ggplot(aes(x = dose)) +
+  geom_line(aes(y = yhat1), color='red') +
+  geom_line(aes(y = yhat2), color = 'blue') +
+  geom_point(data=drc::deguelin, aes(x = dose, y = r/n), color = 'black') +
+  theme_bw() +
+  labs(y = 'P(death)', title = 'Effect of deguelin on Macrosiphoniella sanborni')
+```
+
+### Log-logistic vs Weibull
+

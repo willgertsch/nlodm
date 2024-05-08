@@ -52,3 +52,9 @@ plot_pareto2d = function(pareto_data, obj_names) {
     ggplot2::theme_bw() +
     ggplot2::labs(title = "Pareto front", x = obj_names[1], y = obj_names[2])
 }
+
+# scaling function
+# assuming a minimization problem
+scale_obj = function(obj) {
+  (max(obj)-obj)/(max(obj)-min(obj))
+}
