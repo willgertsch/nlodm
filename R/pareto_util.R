@@ -56,5 +56,9 @@ plot_pareto2d = function(pareto_data, obj_names) {
 # scaling function
 # assuming a minimization problem
 scale_obj = function(obj) {
-  (max(obj)-obj)/(max(obj)-min(obj))
+
+  # deal with infinite values
+  obj[which(obj == Inf)] = NA
+
+  (max(obj, na.rm = T)-obj)/(max(obj, na.rm = T)-min(obj, na.rm = T))
 }

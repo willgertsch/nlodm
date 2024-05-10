@@ -6,6 +6,7 @@ grad.logistic = function(x, theta) {
   return(grad)
 }
 
+
 grad.logistic.quad = function(x, theta) {
 
   eta = theta[1] + theta[2] * x + theta[3] * x^2

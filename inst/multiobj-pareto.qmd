@@ -723,22 +723,25 @@ extract_front(result) %>%
 
 The major difference between the (obj1, obj2) cluster and the obj3 cluster is that theta3 requires dose groups (0, 30, 50) while (theta1, theta2) needs (0, 13 or 16, 27 or 30).
 
-### 10 prior theta
 
 ## Designs with model uncertainty
 In many cases, we may want to apply multiple models to the data. We want to make sure our design will be efficient for estimating all the models that we want to use.
 
+Because the models in my code are parameterized the same as in BMDS, we will get parameter estimates from BMDS.
+
+### Log-logistic vs. Weibull
+
 ```{r}
 # fit log-logistic and Weibull models to data
-mod1 = drm(r/n ~ dose, weights=n, data=deguelin, fct=LL.3u(), type='binomial')
-mod2 = drm(r/n ~ dose, weights=n, data=deguelin, fct=W1.3u(), type='binomial')
+#mod1 = drm(r/n ~ dose, weights=n, data=deguelin, fct=LL.3u(), type='binomial')
+#mod2 = drm(r/n ~ dose, weights=n, data=deguelin, fct=W1.3u(), type='binomial')
 
 data.frame(
   dose = seq(0, 50)
 ) %>%
   mutate(
-    yhat1 = predict(mod1, newdata = data.frame(dose)),
-    yhat2 = predict(mod2, newdata = data.frame(dose))
+    yhat1 = f.loglogistic3.bmds(dose, c(0.3238, -12.09, 4.137)),
+    yhat2 = f.weibull3.bmds(dose, c(0.2414, 1.805, 0.004269))
     ) %>%
   ggplot(aes(x = dose)) +
   geom_line(aes(y = yhat1), color='red') +
@@ -748,5 +751,285 @@ data.frame(
   labs(y = 'P(death)', title = 'Effect of deguelin on Macrosiphoniella sanborni')
 ```
 
-### Log-logistic vs Weibull
 
+```{r}
+# design for log-logistic
+out_loglogistic = nlodm(
+  grad_fun = grad.loglogistic,
+  obj = "D",
+  theta = c(0.3238, -12.09, 4.137),
+  bound = 50,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 100,
+  iter = 500,
+  seed = 423,
+  binary_response = T,
+  dr_fun = f.loglogistic3.bmds
+)
+```
+
+```{r}
+# design for Weibull
+out_weibull = nlodm(
+  grad_fun = grad.weibull,
+  obj = "D",
+  theta = c(0.2414, 1.805, 0.004269),
+  bound = 50,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 100,
+  iter = 500,
+  seed = 423,
+  binary_response = T,
+  dr_fun = f.weibull3.bmds
+)
+```
+
+```{r}
+out_loglogistic$design
+```
+
+```{r}
+out_weibull$design
+```
+```{r}
+grad_funs = list(grad.loglogistic, grad.weibull)
+obj_funs = list(obj.D, obj.D)
+thetas = list(
+    c(0.3238, -12.09, 4.137),
+    c(0.2414, 1.805, 0.004269)
+  )
+params = list(
+    c(),
+    c()
+  )
+binary_responses = c(T,T)
+dr_funs = list(f.loglogistic3.bmds, f.weibull3.bmds)
+
+result_ll_w = multi_obj(
+    grad_funs = grad_funs,
+    obj_funs = obj_funs,
+    thetas = thetas,
+    params = params,
+    type = 'pareto',
+    bound = 50,
+    pts = 3,
+    swarm = 100,
+    maxiter = 500,
+    verbose = F,
+    exact = F,
+    binary_responses = binary_responses,
+    dr_funs = dr_funs
+  )
+```
+
+```{r}
+extract_front(result_ll_w) %>%
+  plot_pareto2d(c('Log-logistic', 'Weibull')) +
+  geom_smooth(se = F, linetype = 2, color = 'grey')
+```
+
+```{r}
+extract_front(result_ll_w) %>%
+  mutate(
+    obj1 = scale_obj(obj1),
+    obj2 = scale_obj(obj2)
+  ) %>%
+  plot_pareto2d(c('Log-logistic', 'Weibull')) +
+  geom_smooth(se = F, linetype = 2, color = 'grey') +
+  annotate('point', x = 1, y = 1, color = 'red')
+```
+### More models
+```{r}
+data.frame(
+  dose = seq(0, 50)
+) %>%
+  mutate(
+    loglogistic = f.loglogistic3.bmds(dose, c(0.3238, -12.09, 4.137)),
+    weibull = f.weibull3.bmds(dose, c(0.2414, 1.805, 0.004269)),
+    hill = f.hill.bmds(dose, c(0.3238, 0.99, -12.09, 4.137)),
+    multistage1 = f.multi1.bmds(dose, c(0.0001, 0.07127)),
+    logistic = f.logistic.bmds(dose, c(-1.563, 0.1258)),
+    logprobit = f.logprobit.bmds(dose, c(0.3139, -6.442, 2.220)),
+    probit = f.probit.bmds(dose, c(-0.8824, 0.07047))
+    ) %>%
+  pivot_longer(
+    cols = -dose,
+    names_to = 'model'
+  ) %>%
+  ggplot(aes(x = dose, y = value, color = model)) +
+  geom_line()+
+  geom_point(data=drc::deguelin, aes(x = dose, y = r/n), color = 'black') +
+  theme_bw() +
+  labs(y = 'P(death)', title = 'Effect of deguelin on Macrosiphoniella sanborni')
+```
+
+```{r}
+grad_funs = list(grad.loglogistic, grad.weibull, grad.hill, grad.multi1,
+                 grad.logistic, grad.logprobit, grad.probit)
+obj_funs = list(obj.D, obj.D, obj.D, obj.D, obj.D, obj.D, obj.D)
+thetas = list(
+    c(0.3238, -12.09, 4.137),
+    c(0.2414, 1.805, 0.004269),
+    c(0.3238, 0.99, -12.09, 4.137),
+    c(0.0001, 0.07127),
+    c(-1.563, 0.1258),
+    c(0.3139, -6.442, 2.220),
+    c(-0.8824, 0.07047)
+  )
+params = list(
+    c(),
+    c(),
+    c(),
+    c(),
+    c(),
+    c(),
+    c()
+  )
+binary_responses = rep(T, 7)
+dr_funs = list(f.loglogistic3.bmds, f.weibull3.bmds, f.hill.bmds, 
+               f.multi1.bmds, f.logistic.bmds, f.logprobit.bmds, f.probit.bmds)
+
+result_all_models= multi_obj(
+    grad_funs = grad_funs,
+    obj_funs = obj_funs,
+    thetas = thetas,
+    params = params,
+    type = 'pareto',
+    bound = 50,
+    pts = 3,
+    swarm = 100,
+    maxiter = 500,
+    verbose = F,
+    exact = F,
+    binary_responses = binary_responses,
+    dr_funs = dr_funs
+  )
+```
+
+```{r}
+extract_front(result_all_models)
+```
+
+```{r}
+extract_front(result_all_models) %>%
+  mutate(
+    loglogistic = scale_obj(obj1),
+    weibull = scale_obj(obj2),
+    hill = scale_obj(obj3),
+    multistage1 = scale_obj(obj4),
+    logistic = scale_obj(obj5),
+    logprobit = scale_obj(obj6),
+    probit = scale_obj(obj7),
+  ) %>%
+ggpairs(columns = 14:20)
+```
+
+It is really complicated to interpret 10 different objectives. Interesting to see which variables have a linear trend. What does the linear trend signify. Log-logistic vs Weibull, log-logistic vs log-probit, log-probit vs Weibull, logistic vs probit. 
+
+Now look at histograms. It seems that most designs are not good for the Hill model and most are good for logistic and probit. This is likely because we only considered designs with 3 points for a 4 parameter model. What does this plot look like when we allow for a max of 4 design points?
+```{r}
+
+grad_funs = list(grad.loglogistic, grad.weibull, grad.hill, grad.multi1,
+                 grad.logistic, grad.logprobit, grad.probit)
+obj_funs = list(obj.D, obj.D, obj.D, obj.D, obj.D, obj.D, obj.D)
+thetas = list(
+    c(0.3238, -12.09, 4.137),
+    c(0.2414, 1.805, 0.004269),
+    c(0.3238, 0.99, -12.09, 4.137),
+    c(0.0001, 0.07127),
+    c(-1.563, 0.1258),
+    c(0.3139, -6.442, 2.220),
+    c(-0.8824, 0.07047)
+  )
+params = list(
+    c(),
+    c(),
+    c(),
+    c(),
+    c(),
+    c(),
+    c()
+  )
+binary_responses = rep(T, 7)
+dr_funs = list(f.loglogistic3.bmds, f.weibull3.bmds, f.hill.bmds, 
+               f.multi1.bmds, f.logistic.bmds, f.logprobit.bmds, f.probit.bmds)
+
+result_all_models4= multi_obj(
+    grad_funs = grad_funs,
+    obj_funs = obj_funs,
+    thetas = thetas,
+    params = params,
+    type = 'pareto',
+    bound = 50,
+    pts = 4,
+    swarm = 100,
+    maxiter = 500,
+    verbose = F,
+    exact = F,
+    binary_responses = binary_responses,
+    dr_funs = dr_funs
+  )
+```
+
+```{r}
+extract_front(result_all_models4) %>%
+  mutate(
+    loglogistic = scale_obj(obj1),
+    weibull = scale_obj(obj2),
+    hill = scale_obj(obj3),
+    multistage1 = scale_obj(obj4),
+    logistic = scale_obj(obj5),
+    logprobit = scale_obj(obj6),
+    probit = scale_obj(obj7),
+  ) %>%
+ggpairs(columns = 16:22)
+```
+This is better, but we still see that the Hill model has different needs because it needs the 4 support points. Let's look at the best designs for the Hill model.
+```{r}
+extract_front(result_all_models4) %>%
+  mutate(
+    loglogistic = scale_obj(obj1),
+    weibull = scale_obj(obj2),
+    hill = scale_obj(obj3),
+    multistage1 = scale_obj(obj4),
+    logistic = scale_obj(obj5),
+    logprobit = scale_obj(obj6),
+    probit = scale_obj(obj7),
+  ) %>%
+  arrange(desc(hill)) %>%
+  select(hill, starts_with('d'), starts_with('w'))
+```
+
+We see that 4 dose groups are needed. Compare this to the designs for the log-logistic.
+```{r}
+extract_front(result_all_models4) %>%
+  mutate(
+    loglogistic = scale_obj(obj1),
+    weibull = scale_obj(obj2),
+    hill = scale_obj(obj3),
+    multistage1 = scale_obj(obj4),
+    logistic = scale_obj(obj5),
+    logprobit = scale_obj(obj6),
+    probit = scale_obj(obj7),
+  ) %>%
+  arrange(desc(loglogistic)) %>%
+  select(loglogistic, starts_with('d'), starts_with('w'))
+```
+These are not the optimal design, but we can see that two of the dose groups are close together and roughly split the 0.33 weight. Now let's look at the logistic model.
+```{r}
+extract_front(result_all_models4) %>%
+  mutate(
+    loglogistic = scale_obj(obj1),
+    weibull = scale_obj(obj2),
+    hill = scale_obj(obj3),
+    multistage1 = scale_obj(obj4),
+    logistic = scale_obj(obj5),
+    logprobit = scale_obj(obj6),
+    probit = scale_obj(obj7),
+  ) %>%
+  arrange(desc(logistic)) %>%
+  select(logistic, starts_with('d'), starts_with('w'))
+```
+The best designs here suggest the two dose group design, which is the optimal design for the two parameter models.
