@@ -1,28 +1,21 @@
 # individual pages in the wizard
+page0 = tagList(
+  titlePanel("Optimal experimental design for dose response."),
+  'This app will help you to find an optimal design for your dose response experiment.'
+)
+
 page1 <- tagList(
-  titlePanel("Design criteria"),
-  sidebarLayout(
-    sidebarPanel(
-      checkboxInput('obj_checkbox_D', 'D', value = TRUE),
-      checkboxInput('obj_checkbox_A', 'A', value = FALSE),
-      checkboxInput('obj_checkbox_BMD', 'BMD', value = FALSE)
-    ),
-    mainPanel(
-      'Before finding the optimal design, one or more design criteria must be selected.
-      These are chosen based on the goals of the experiment and different criteria will
-      lead to different designs.',
-      tags$ul(
-        tags$li('D (recommended): minimizes the confidence region for all parameter estimates.'),
-        tags$li('A: minimizes the sum of the variances of the parameter estimates.'),
-        tags$li('BMD: minimizes the variance of the estimated benchmark dose. ')
-      )
-    )
-  )
+  titlePanel("What is the goal of your experiment?"),
+  "Before finding an optimal design, we need to clarify the purpose of the experiment.
+  Select one or more of the options below.",
+  checkboxInput('obj_checkbox_D', 'Estimating the dose response model (D-optimality).', value = TRUE),
+  checkboxInput('obj_checkbox_BMD', 'Estimating the benchmark dose', value = FALSE)
+  # what if the user checks none of the boxes?
 
 
 )
 page2 <- tagList(
-  titlePanel('Select model'),
+  titlePanel('What model will you use to analyze the data?'),
   sidebarLayout(
     sidebarPanel(
       selectInput(
@@ -30,14 +23,14 @@ page2 <- tagList(
         label = NULL,
         # choices = c('4 parameter log-logistic'),
         # selected = '4 parameter log-logistic'
-        choices = c('Log-logistic', 'Logistic', 'Weibull', 'Hill'),
+        choices = c('Log-logistic', 'Logistic', 'Weibull'),
         selected = 'Log-logistic'
       ),
     ),
     mainPanel(
-      'Optimal design is a model-based methodology and assumes the data will be
-      analyzed using a specific model. If the analysis model is unknown, it may be
-      beneficial to find designs under the assumption of several different models.',
+      "The optimal design will be based on the model you plan to use to analyze the data.
+      If you are unsure, choose log-logistic. If even you you choose another model at the analysis stage,
+      there is some evidence that the design will be similar if the number of parameters is the same.",
       uiOutput('model_formula_display_page2')
     )
   )
@@ -45,8 +38,10 @@ page2 <- tagList(
 
 )
 page3 <- tagList(
-  titlePanel('Choose model parameters'),
-  "Finding optimal designs for nonlinear dose-response models requires a prior guess of the true parameters.",
+  titlePanel('Provide prior information'),
+  "Finding the optimal design requires prior information about the dose-response relationship.
+  This can come from a prior study. If there is no prior result, then select a curve that is
+  scientifically reasonable.",
   uiOutput('model_formula_display_page3'),
   uiOutput('example_theta'),
   sidebarLayout(
@@ -54,19 +49,19 @@ page3 <- tagList(
       numericInput(
         'theta1',
         'Theta 1',
-        value = 0.084950,
+        value = 0.32,
         step = 0.1
       ),
       numericInput(
         'theta2',
         'Theta 2',
-        -11.093067,
+        -12.1,
         step = 0.1
       ),
       numericInput(
         'theta3',
         'Theta 3',
-        12.157339,
+        4.1,
         step = 0.1
       ),
       numericInput(
@@ -77,8 +72,8 @@ page3 <- tagList(
       ),
       numericInput(
         'dose_limit',
-        'Dose limit',
-        5,
+        'Maximum dose',
+        50,
         min = 0.01,
         step = 0.5
       )
@@ -91,18 +86,12 @@ page3 <- tagList(
 
 )
 page4 = tagList(
-  titlePanel('Algorithm options'),
+  titlePanel('Set algorithm options'),
   sidebarLayout(
     sidebarPanel(
-      selectInput(
-        'method',
-        'Multi-objective method',
-        choices = c('compound', 'pareto'),
-        selected = 'pareto'
-      ),
       numericInput(
         'design_pts',
-        'Dose levels (sample size for exact designs)',
+        'Number of dose groups',
         value = 3,
         min = 1,
         max = 100
@@ -120,30 +109,17 @@ page4 = tagList(
         500,
         max = 10000,
         min = 1
-      ),
-      checkboxInput(
-        'exact',
-        'Exact design',
-        value = F
       )
     ),
     mainPanel(
       'The options on this page control options for the algorithm that finds designs.',
       tags$ul(
-        tags$li('Multi-objective method: if the Pareto option is selectd, multi-objective
-                optimization will be used to find designs that are optimal trade-offs between objectives.
-                (Compound designs are the traditional weighted sum approach and are
-                currently not supported.)'),
         tags$li("Dose levels: this option controls the maximum number of dose groups in the design.
                 Usually, this should match the number of parameters in the model."),
         tags$li('Swarm size: controls the number of entities used by the algorithm to
                 find the design. Increasing this number will diversify the seach and
                 make design more likely to be found'),
-        tags$li("Maximum iterations: controls the number of iterations for algorithm."),
-        tags$li("Exact design: By default, the design found will be in terms of
-                the proportion of the total sample size at each dose group. If a
-                specific total sample size is required, check this box and update
-                the dose levels option to be the total sample size.")
+        tags$li("Maximum iterations: controls the number of iterations for algorithm.")
       )
     )
   ),

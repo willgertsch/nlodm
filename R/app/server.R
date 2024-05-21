@@ -1,6 +1,6 @@
 # code for server
 server <- function(input, output, session) {
-  wizardServer("wizard", 5)
+  wizardServer("wizard", 6)
 
   # dose response plot
   dose_response_plot = reactive({
@@ -14,16 +14,16 @@ server <- function(input, output, session) {
   # find design button
   observeEvent(input$done, {
 
-    # browser()
-    selected_obj = c(input$obj_checkbox_D, input$obj_checkbox_A, input$obj_checkbox_BMD)
-    obj_names = c('D', 'A', 'c_e')[selected_obj]
+    #browser()
+    selected_obj = c(input$obj_checkbox_D, input$obj_checkbox_BMD)
+    obj_names = c('D', 'c')[selected_obj]
     grad = grad_selector(input$model_selector)
-    grad_funs = list(grad, grad, grad)[selected_obj]
-    obj_funs = list(obj.D, obj.A, obj.c_e)[selected_obj]
+    grad_funs = list(grad, grad)[selected_obj]
+    obj_funs = list(obj.D, obj.c)[selected_obj]
     theta = c(input$theta1, input$theta2, input$theta3, input$theta4)
-    thetas = list(theta, theta, theta)[selected_obj]
+    thetas = list(theta, theta)[selected_obj]
     bmd_grad = get_bmd_grad(input$model_selector, 'extra')
-    params = list(c(), c(), bmd_grad(0.1, theta))[selected_obj]
+    params = list(c(), bmd_grad(0.1, theta))[selected_obj]
 
 
     # switch between single and multi-objective
@@ -41,12 +41,11 @@ server <- function(input, output, session) {
         swarm = input$swarm,
         iter = input$maxIter,
         seed = NULL,
-        bmd_type = 'added',
-        risk = 0.1,
-        lambda = 0.5,
-        c = NULL,
-        exact = input$exact,
-        exact_digits = 4
+        c = params[[1]],
+        exact = F,
+        exact_digits = 4,
+        binary_response = T,
+        dr_fun = f.loglogistic3.bmds
       )
 
       # save results to reactive data structure
@@ -154,8 +153,6 @@ server <- function(input, output, session) {
     HTML(paste(
       'D objective:',
       input$obj_checkbox_D,
-      '<br>A objective:',
-      input$obj_checkbox_A,
       '<br>BMD objective:',
       input$obj_checkbox_BMD,
       '<br>Model:',
@@ -168,18 +165,14 @@ server <- function(input, output, session) {
       input$theta3,
       '<br>theta 4:',
       input$theta4,
-      '<br>Dose limit:',
+      '<br>Maximum dosage:',
       input$dose_limit,
-      '<br>Multi-objective method:',
-      input$method,
-      '<br>Dose levels:',
+      '<br>Number of dose groups:',
       input$design_pts,
       '<br>Swarm size:',
       input$swarm,
       '<br>Maximum iterations:',
-      input$maxIter,
-      '<br>Exact design:',
-      input$exact
+      input$maxIter
     ))
   })
 }

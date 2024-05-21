@@ -5,15 +5,18 @@ editor: visual
 ---
 
 ```{r setup}
+devtools::load_all(".")
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(drc)
+library(GGally)
 ```
 
 ## Introduction
 
 Use deguelin data as an example and fit a 4 parameter log-logistic.
+
 ```{r}
 #mod = drm(r/n ~ dose, weights=n, data=deguelin, fct=LL.4(), type='binomial')
 # going to fit a 3 parameter model instead
@@ -23,7 +26,6 @@ mod = drm(r/n ~ dose, weights=n, data=deguelin, fct=LL.3u(), type='binomial')
 ```{r}
 coef(mod)
 ```
-
 
 ```{r}
 pred_data = data.frame(
@@ -39,15 +41,12 @@ pred_data %>%
   labs(y = 'P(death)', title = 'Effect of deguelin on Macrosiphoniella sanborni')
 ```
 
-The model used by the drc package has the following form.
-$$
+The model used by the drc package has the following form. $$
 f(x) = c + \frac{1-c}{1+\exp(b(\log(x)-\log(e)))}
-$$
-My optimal design code uses the parameterization in BMDS.
-$$
+$$ My optimal design code uses the parameterization in BMDS. $$
 f(x) = g + \frac{1-g}{1 + \exp(-a -b\log(x))}
-$$
-Need to convert from one parameterization to the other
+$$ Need to convert from one parameterization to the other
+
 ```{r}
 # b, c, e
 theta0 = as.numeric(coef(mod))
@@ -56,6 +55,7 @@ theta = c(theta0[2], theta0[1]*log(theta0[3]), -theta0[1])
 ```
 
 Plot to check if correct.
+
 ```{r}
 data.frame(
   dose = seq(0, 50)
@@ -70,6 +70,7 @@ data.frame(
 ## Designs for multiple criteria
 
 ### D and A
+
 Find single objective designs first.
 
 ```{r}
@@ -85,7 +86,6 @@ eval_crit(
   dr_fun = f.loglogistic3.bmds
 )
 ```
-
 
 ```{r}
 D_opt = nlodm(
@@ -131,6 +131,7 @@ A_opt = nlodm(
 ```{r}
 A_opt$plot
 ```
+
 ```{r}
 A_opt$design
 ```
@@ -172,6 +173,7 @@ plot_pareto2d(pareto_data, c("D", "A")) +
   geom_vline(xintercept = 7.717531) +
   geom_hline(yintercept = 1546.254)
 ```
+
 ```{r}
 # pareto front with scaled objective values
 # changes to maximization format
@@ -180,9 +182,11 @@ extract_front(result) %>%
   plot_pareto2d(c("D", "A")) +
   geom_smooth(se=F, linetype=2, color='grey')
 ```
+
 This plot suggests that getting a good design for A is more difficult.
 
-Suppose we want designs with >0.98 on D and >0.90 on A. These designs are roughly the same so we can just take the one with the best performance on the A objective.
+Suppose we want designs with \>0.98 on D and \>0.90 on A. These designs are roughly the same so we can just take the one with the best performance on the A objective.
+
 ```{r}
 extract_front(result) %>%
   mutate(obj1 = 7.717531/obj1, obj2 = 1546.254/obj2) %>%
@@ -190,9 +194,11 @@ extract_front(result) %>%
   arrange(desc(obj2)) %>%
   head(1)
 ```
+
 This design no longer has equal weights, but not as extreme as the A optimal design. The highest dose is inbetween the D-optimal highest dose the the A-optimal higest dose.
 
 ### Continuous vs binary response
+
 ```{r}
 D_opt_cont = nlodm(
   grad_fun = grad.loglogistic,
@@ -216,9 +222,11 @@ D_opt$design
 ```{r}
 D_opt_cont$design
 ```
+
 The biggest difference between these designs is that assuming the binary response requires the 3rd point to be further out. This is probably because the variance in non-constant and more information is needed at higher doses.
 
 Now try the Pareto-optimal approach.
+
 ```{r}
 grad_funs = list(grad.loglogistic, grad.loglogistic)
 obj_funs = list(obj.D, obj.D)
@@ -267,7 +275,9 @@ extract_front(result) %>%
   plot_pareto2d(c("D binary", "D continuous")) +
   geom_smooth(se = F, linetype = 2, color = 'grey')
 ```
+
 From this plot we see that we can get designs with very high efficiency on both objectives. We can get the designs with efficiency requirements on each objectives.
+
 ```{r}
 extract_front(result) %>%
   mutate(obj1 = 7.717531/obj1, obj2 = 12.81728/obj2) %>%
@@ -277,6 +287,33 @@ extract_front(result) %>%
 It seems that having the high dose at around 27 is a good solution for managing the tradeoffs between a continuous and binary response assumption.
 
 ### D and BMD
+Finding the c-optimal design for the BMD.
+```{r}
+bmd_grad = get_bmd_grad("Log-logistic", 'extra')
+c = matrix(bmd_grad(0.1, theta), nrow = 1)
+out_copt_bmd = nlodm(
+  grad_fun = grad.loglogistic,
+  obj = 'c',
+  theta = theta,
+  bound = 50,
+  pts = 3,
+  algorithm = 'DE',
+  swarm = 50,
+  iter = 500,
+  seed = 1234,
+  c = c,
+  binary_response = T,
+  dr_fun = f.loglogistic3.bmds
+)
+```
+```{r}
+out_copt_bmd$design
+```
+
+```{r}
+out_copt_bmd$plot
+```
+
 In my previous paper/web-app, I found designs for estimating the BMD using a compound design criteria.
 
 ```{r}
@@ -299,6 +336,7 @@ out_compound = nlodm(
   dr_fun = f.loglogistic3.bmds
 )
 ```
+
 ```{r}
 out_compound$plot
 ```
@@ -306,7 +344,9 @@ out_compound$plot
 ```{r}
 out_compound$design
 ```
+
 We had to choose $\lambda$ in order to get this result. To see how the choice of $\lambda$ affects the design, we can find the design for different values of $\lambda$ and plot the efficiencies.
+
 ```{r}
 lambdas = seq(0, 1, length.out=10)
 bmd_grad = get_bmd_grad("Log-logistic", 'extra')
@@ -398,6 +438,7 @@ data.frame(
 ```
 
 Find the c-optimal design for estimating the BMD.
+
 ```{r}
 bmd_grad = get_bmd_grad("Log-logistic", 'extra')
 c = bmd_grad(0.1, theta)
@@ -420,13 +461,17 @@ out_bmd_c = nlodm(
   dr_fun = f.loglogistic3.bmds
 )
 ```
+
 ```{r}
 out_bmd_c$plot
 ```
+
 ```{r}
 out_bmd_c$design
 ```
+
 Now use the Pareto-front approach and compare.
+
 ```{r}
 bmd_grad = get_bmd_grad("Log-logistic", 'extra')
 c = bmd_grad(0.1, theta)
@@ -467,6 +512,7 @@ extract_front(result) %>%
   geom_hline(yintercept = 6.471296) +
   geom_smooth(se = F, linetype = 2, color = 'grey')
 ```
+
 ```{r}
 extract_front(result) %>%
   mutate(
@@ -476,7 +522,9 @@ extract_front(result) %>%
   plot_pareto2d( c('D', 'BMD')) +
   geom_smooth(se = F, linetype = 2, color = 'grey')
 ```
+
 From this plot it looks like the D and BMD objectives have similar design needs.
+
 ```{r}
 extract_front(result) %>%
   mutate(
@@ -489,6 +537,7 @@ extract_front(result) %>%
 Therefore, it seems that is best to design for BMD because the design will still be very good at the D objective.
 
 Compare with compound designs found earlier.
+
 ```{r}
 extract_front(result) %>%
   mutate(
@@ -500,13 +549,17 @@ extract_front(result) %>%
   geom_point(data = data.frame(obj1=7.717531/-Dvals, obj2=6.471296/-Cvals), aes(x=obj1, y=obj2), color='red') +
 geom_smooth(data = data.frame(obj1=7.717531/-Dvals, obj2=6.471296/-Cvals), aes(x=obj1, y=obj2), color='black', se = F)
 ```
+
 This seems to suggest that the efficiency plots from Cook and Wong (1994) roughly correspond to the Pareto front.
 
 ## Designs with prior information
-The usual optimal design approach for the problem of local parameter values is either Bayesian designs or minimax designs. However, we can also apply a Pareto optimal approach. We will compare 
+
+The usual optimal design approach for the problem of local parameter values is either Bayesian designs or minimax designs. However, we can also apply a Pareto optimal approach. We will compare
 
 ### 2 prior theta
-What if the background response is 0? 
+
+What if the background response is 0?
+
 ```{r}
 theta1 = theta
 theta2 = c(0.0001, -12.0933906,   4.1368052)
@@ -525,7 +578,9 @@ data.frame(
   theme_bw() +
   labs(title = "Dose-response curve variety", y = 'P(death)')
 ```
+
 Start with single objective.
+
 ```{r}
 out_theta1 = nlodm(
   model = 'Log-logistic',
@@ -610,9 +665,11 @@ extract_front(result) %>%
   plot_pareto2d( c('D theta 1', 'D theta 2')) +
   geom_smooth(se = F, linetype = 2, color = 'grey')
 ```
+
 It seems that it is harder to have a design that is efficient for estimating the case when the background dose is 0.
 
 ### 3 prior theta
+
 Add another theta, this time tweak the slope
 
 ```{r}
@@ -636,6 +693,7 @@ data.frame(
   theme_bw() +
   labs(title = "Dose-response curve variety", y = 'P(death)')
 ```
+
 ```{r}
 # check the new value
 out_theta3 = nlodm(
@@ -723,8 +781,8 @@ extract_front(result) %>%
 
 The major difference between the (obj1, obj2) cluster and the obj3 cluster is that theta3 requires dose groups (0, 30, 50) while (theta1, theta2) needs (0, 13 or 16, 27 or 30).
 
-
 ## Designs with model uncertainty
+
 In many cases, we may want to apply multiple models to the data. We want to make sure our design will be efficient for estimating all the models that we want to use.
 
 Because the models in my code are parameterized the same as in BMDS, we will get parameter estimates from BMDS.
@@ -750,7 +808,6 @@ data.frame(
   theme_bw() +
   labs(y = 'P(death)', title = 'Effect of deguelin on Macrosiphoniella sanborni')
 ```
-
 
 ```{r}
 # design for log-logistic
@@ -793,6 +850,7 @@ out_loglogistic$design
 ```{r}
 out_weibull$design
 ```
+
 ```{r}
 grad_funs = list(grad.loglogistic, grad.weibull)
 obj_funs = list(obj.D, obj.D)
@@ -840,7 +898,9 @@ extract_front(result_ll_w) %>%
   geom_smooth(se = F, linetype = 2, color = 'grey') +
   annotate('point', x = 1, y = 1, color = 'red')
 ```
+
 ### More models
+
 ```{r}
 data.frame(
   dose = seq(0, 50)
@@ -926,9 +986,10 @@ extract_front(result_all_models) %>%
 ggpairs(columns = 14:20)
 ```
 
-It is really complicated to interpret 10 different objectives. Interesting to see which variables have a linear trend. What does the linear trend signify. Log-logistic vs Weibull, log-logistic vs log-probit, log-probit vs Weibull, logistic vs probit. 
+It is really complicated to interpret 10 different objectives. Interesting to see which variables have a linear trend. What does the linear trend signify. Log-logistic vs Weibull, log-logistic vs log-probit, log-probit vs Weibull, logistic vs probit.
 
 Now look at histograms. It seems that most designs are not good for the Hill model and most are good for logistic and probit. This is likely because we only considered designs with 3 points for a 4 parameter model. What does this plot look like when we allow for a max of 4 design points?
+
 ```{r}
 
 grad_funs = list(grad.loglogistic, grad.weibull, grad.hill, grad.multi1,
@@ -986,7 +1047,9 @@ extract_front(result_all_models4) %>%
   ) %>%
 ggpairs(columns = 16:22)
 ```
+
 This is better, but we still see that the Hill model has different needs because it needs the 4 support points. Let's look at the best designs for the Hill model.
+
 ```{r}
 extract_front(result_all_models4) %>%
   mutate(
@@ -1003,6 +1066,7 @@ extract_front(result_all_models4) %>%
 ```
 
 We see that 4 dose groups are needed. Compare this to the designs for the log-logistic.
+
 ```{r}
 extract_front(result_all_models4) %>%
   mutate(
@@ -1017,7 +1081,9 @@ extract_front(result_all_models4) %>%
   arrange(desc(loglogistic)) %>%
   select(loglogistic, starts_with('d'), starts_with('w'))
 ```
+
 These are not the optimal design, but we can see that two of the dose groups are close together and roughly split the 0.33 weight. Now let's look at the logistic model.
+
 ```{r}
 extract_front(result_all_models4) %>%
   mutate(
@@ -1032,4 +1098,5 @@ extract_front(result_all_models4) %>%
   arrange(desc(logistic)) %>%
   select(logistic, starts_with('d'), starts_with('w'))
 ```
+
 The best designs here suggest the two dose group design, which is the optimal design for the two parameter models.
