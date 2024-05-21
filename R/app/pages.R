@@ -10,7 +10,6 @@ page1 <- tagList(
   Select one or more of the options below.",
   checkboxInput('obj_checkbox_D', 'Estimating the dose response model (D-optimality).', value = TRUE),
   checkboxInput('obj_checkbox_BMD', 'Estimating the benchmark dose', value = FALSE)
-  # what if the user checks none of the boxes?
 
 
 )

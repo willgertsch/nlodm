@@ -50,7 +50,8 @@ plot_pareto2d = function(pareto_data, obj_names) {
                   ggplot2::aes(x = obj1, y = obj2)) +
     ggplot2::geom_point(color = "blue", size = 2) +
     ggplot2::theme_bw() +
-    ggplot2::labs(title = "Pareto front", x = obj_names[1], y = obj_names[2])
+    ggplot2::labs(title = "Pareto front", x = obj_names[1], y = obj_names[2]) +
+    ggplot2::geom_smooth(se = F, linetype = 2, color = 'grey')
 }
 
 # scaling function

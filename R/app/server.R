@@ -24,6 +24,7 @@ server <- function(input, output, session) {
     thetas = list(theta, theta)[selected_obj]
     bmd_grad = get_bmd_grad(input$model_selector, 'extra')
     params = list(c(), bmd_grad(0.1, theta))[selected_obj]
+    dr_funs = list(f.loglogistic3.bmds, f.loglogistic3.bmds)[selected_obj]
 
 
     # switch between single and multi-objective
@@ -45,7 +46,7 @@ server <- function(input, output, session) {
         exact = F,
         exact_digits = 4,
         binary_response = T,
-        dr_fun = f.loglogistic3.bmds
+        dr_fun = dr_funs[[1]]
       )
 
       # save results to reactive data structure
@@ -60,24 +61,71 @@ server <- function(input, output, session) {
         modalButton("Done"),
         footer = NULL))
     }
-    else if (sum(selected_obj) > 1) {
+    else if (sum(selected_obj) == 2) {
       # call main function
       result = multi_obj(
         grad_funs,
         obj_funs,
         thetas,
         params,
-        type = input$method,
+        type = 'pareto',
         bound = input$dose_limit,
         pts = input$design_pts,
         swarm = input$swarm,
         maxiter = input$maxIter,
         verbose = T,
-        exact = input$exact
+        exact = F,
+        binary_responses = rep(T, sum(selected_obj)),
+        dr_funs = dr_funs
       )
 
       # process results
-      results$pareto_data = extract_front(result, input$exact)
+      results$pareto_data = extract_front(result, F)
+
+      # find single objective designs
+      Dopt = nlodm(
+        model = NULL,
+        grad_fun = grad_funs[[1]],
+        obj = obj_names[1],
+        theta = theta,
+        prior_weights = c(1),
+        bound = input$dose_limit,
+        pts = input$design_pts,
+        algorithm = 'DE',
+        swarm = input$swarm,
+        iter = input$maxIter,
+        seed = NULL,
+        c = params[[1]],
+        exact = F,
+        exact_digits = 4,
+        binary_response = T,
+        dr_fun = dr_funs[[1]]
+      )
+
+      Copt = nlodm(
+        model = NULL,
+        grad_fun = grad_funs[[2]],
+        obj = obj_names[2],
+        theta = theta,
+        prior_weights = c(1),
+        bound = input$dose_limit,
+        pts = input$design_pts,
+        algorithm = 'DE',
+        swarm = input$swarm,
+        iter = input$maxIter,
+        seed = NULL,
+        c = params[[2]],
+        exact = F,
+        exact_digits = 4,
+        binary_response = T,
+        dr_fun = dr_funs[[2]]
+      )
+
+      # D-efficency
+      results$pareto_data$obj1 = (exp(-results$pareto_data$obj1)/exp(as.numeric(Dopt$design$obj_value)))^(1/length(theta))
+      results$pareto_data$obj2 = (exp(-results$pareto_data$obj2)/exp(as.numeric(Copt$design$obj_value)))
+
+
 
 
       showModal(modalDialog(
@@ -122,10 +170,10 @@ server <- function(input, output, session) {
 
   # Render the plot in modal
   output$results_plot <- renderPlot({
-    selected_obj = c(input$obj_checkbox_D, input$obj_checkbox_A, input$obj_checkbox_BMD)
+    selected_obj = c(input$obj_checkbox_D, input$obj_checkbox_BMD)
     if (!is.null(results$pareto_data) &
         sum(selected_obj) == 2) {
-      plot_pareto2d(results$pareto_data, c("D", 'A', "BMD")[selected_obj])
+      plot_pareto2d(results$pareto_data, c("D effiency", "BMD efficiency"))
     }
   })
 
