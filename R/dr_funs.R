@@ -10,7 +10,7 @@ f.loglogistic4 = function(x, theta) {
 # 3 parameter log-logistic model
 # BMDS parameterization
 f.loglogistic3.bmds = function(x, theta) {
-  theta[1] + (1-theta[1])/(1+exp(-theta[2]-theta[3]*log(x)))
+  suppressWarnings(theta[1] + (1-theta[1])/(1+exp(-theta[2]-theta[3]*log(x))))
 }
 
 f.weibull3.bmds = function(x, theta) {

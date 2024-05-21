@@ -62,8 +62,8 @@ bmdgrad.loglogistic.extra = function(r, theta) {
   b = theta[3]
 
   g1 = 0
-  g2 = -exp((log(r/(1-r))-a)/b)/b
-  g3 = exp(-a/b) * (r/(1-r))^(1/b) * (a - log(r/(1-r))) / b^2
+  g2 = suppressWarnings(-exp((log(r/(1-r))-a)/b)/b)
+  g3 = suppressWarnings(exp(-a/b) * (r/(1-r))^(1/b) * (a - log(r/(1-r))) / b^2)
   return(c(g1,g2,g3))
 }
 
