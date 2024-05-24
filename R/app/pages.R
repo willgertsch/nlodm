@@ -8,8 +8,8 @@ page1 <- tagList(
   titlePanel("What is the goal of your experiment?"),
   "Before finding an optimal design, we need to clarify the purpose of the experiment.
   Select one or more of the options below.",
-  checkboxInput('obj_checkbox_D', 'Estimating the dose response model (D-optimality).', value = TRUE),
-  checkboxInput('obj_checkbox_BMD', 'Estimating the benchmark dose', value = FALSE)
+  checkboxInput('obj_checkbox_D', 'Estimation of the dose response model parameters (D-optimality).', value = TRUE),
+  checkboxInput('obj_checkbox_BMD', 'Estimation of the benchmark dose', value = FALSE)
 
 
 )

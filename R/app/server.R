@@ -63,7 +63,11 @@ server <- function(input, output, session) {
 
       showModal(modalDialog(
         title = 'Results',
-        'Single objective design found using Differential Evolution:',
+        "A design consists of x values (dosages) and w values (weights).
+        The weights are the proportion of the total sample size that should be
+        assigned to that dose group. Also displayed is the best objective value
+        found and the algorithm used. The plot provides a graphic check of the design's
+        optimality.",
         plotOutput("eq_plot"),
         verbatimTextOutput('single_obj_out'),
         modalButton("Done"),
@@ -143,14 +147,12 @@ server <- function(input, output, session) {
 
       showModal(modalDialog(
         title = 'Results',
-        fluidRow(
-          plotOutput("results_plot")
-        ),
-        h3('Pareto optimal designs'),
-        fluidRow(
-          tableOutput("results_table")
-        ),
-
+        "The Pareto front contains the designs that optimally balance efficiency
+        for both objects. For these designs, it is impossible to improve on one
+        objective without sacrificing performance on the other. The plot and the
+        table can be used to choose the designs which best meet your requirements.",
+        plotOutput("results_plot"),
+        tableOutput("results_table"),
         modalButton("Done"),
         footer = NULL))
     }
@@ -186,7 +188,7 @@ server <- function(input, output, session) {
     selected_obj = c(input$obj_checkbox_D, input$obj_checkbox_BMD)
     if (!is.null(results$pareto_data) &
         sum(selected_obj) == 2) {
-      plot_pareto2d(results$pareto_data, c("D effiency", "BMD efficiency"))
+      plot_pareto2d(results$pareto_data, c("D efficiency", "BMD efficiency"))
     }
   })
 
