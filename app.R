@@ -9,6 +9,8 @@
 
 # libraries
 library(shiny)
+library(shinythemes)
+library(shinybusy)
 library(dplyr)
 library(ggplot2)
 library(metaheuristicOpt)

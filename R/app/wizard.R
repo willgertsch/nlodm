@@ -15,8 +15,9 @@ wrapPage <- function(title, page, button_left = NULL, button_right = NULL) {
       column(12, page)
     ),
     fluidRow(
-      column(6, button_left),
-      column(6, button_right)
+      # column(6, button_left),
+      # column(6, button_right)
+      button_left, button_right
     )
   )
 }

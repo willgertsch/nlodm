@@ -14,6 +14,12 @@ server <- function(input, output, session) {
   # find design button
   observeEvent(input$done, {
 
+    shinybusy::show_modal_spinner(
+      spin = "double-bounce",
+      color = "#112446",
+      text = "Loading..."
+    )
+
     #browser()
     selected_obj = c(input$obj_checkbox_D, input$obj_checkbox_BMD)
     obj_names = c('D', 'c')[selected_obj]
@@ -53,6 +59,8 @@ server <- function(input, output, session) {
       results$eq_plot = result$plot
       results$design = result$design
 
+      shinybusy::remove_modal_spinner()
+
       showModal(modalDialog(
         title = 'Results',
         'Single objective design found using Differential Evolution:',
@@ -63,6 +71,8 @@ server <- function(input, output, session) {
     }
     else if (sum(selected_obj) == 2) {
       # call main function
+      shinybusy::update_modal_spinner("Computing Pareto front...")
+
       result = multi_obj(
         grad_funs,
         obj_funs,
@@ -81,6 +91,8 @@ server <- function(input, output, session) {
 
       # process results
       results$pareto_data = extract_front(result, F)
+
+      shinybusy::update_modal_spinner('Finding optimal single objective designs...')
 
       # find single objective designs
       Dopt = nlodm(
@@ -126,6 +138,7 @@ server <- function(input, output, session) {
       results$pareto_data$obj2 = (exp(-results$pareto_data$obj2)/exp(as.numeric(Copt$design$obj_value)))
 
 
+      shinybusy::remove_modal_spinner()
 
 
       showModal(modalDialog(

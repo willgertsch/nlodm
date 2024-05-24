@@ -132,7 +132,8 @@ page5 = tagList(
       htmlOutput('verify_choices')
     ),
     mainPanel(
-      plotOutput('dose_response_plot_page4')
+      plotOutput('dose_response_plot_page4'),
+      waiter::use_waiter()
     )
   )
 )
