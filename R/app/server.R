@@ -152,7 +152,8 @@ server <- function(input, output, session) {
         objective without sacrificing performance on the other. The plot and the
         table can be used to choose the designs which best meet your requirements.",
         plotOutput("results_plot"),
-        tableOutput("results_table"),
+        #tableOutput("results_table"),
+        DTOutput('results_table'),
         modalButton("Done"),
         footer = NULL))
     }
@@ -179,8 +180,10 @@ server <- function(input, output, session) {
   )
 
   # Render the data table in modal
-  output$results_table <- renderTable({
-    results$pareto_data
+  output$results_table <- DT::renderDT({
+    results$pareto_data %>%
+      DT::datatable(options = list(dom = 'tp')) %>%
+      DT::formatRound(columns = colnames(results$pareto_data), digits = 3)
   })
 
   # Render the plot in modal

@@ -11,6 +11,7 @@
 library(shiny)
 library(shinythemes)
 library(shinybusy)
+library(DT)
 library(dplyr)
 library(ggplot2)
 library(metaheuristicOpt)
