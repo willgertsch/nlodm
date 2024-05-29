@@ -1,0 +1,219 @@
+---
+title: "Sample size"
+format: html
+editor: visual
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(drc)
+library(bmd)
+```
+
+# Basic set up
+```{r}
+mod = drm(r/n ~ dose, weights=n, data=deguelin, fct=LL.3u(), type='binomial')
+```
+
+```{r}
+bmd_out = bmd(mod, bmr = 0.1, backg = 0.323801, def = 'excess', display = T)
+```
+
+
+```{r}
+mod = drm(r/n ~ dose, weights=n, data=deguelin, fct=LL.3u(), type='binomial')
+#bmd(mod, bmr=0.05, backg=0.3, def='excess', display=T, ma=F)
+BMD = 12.1828
+BMDL = 8.1057
+BMDU = 16.2598
+BMDy = predict(mod, data.frame(dose=BMD))
+
+pred_data = data.frame(
+  dose = seq(0, 50)
+) %>%
+  mutate(yhat = predict(mod, newdata = data.frame(dose)))
+
+# decided that BMDL should not be shown because it will invite questions
+pred_data %>%
+  ggplot(aes(x = dose, y = yhat)) +
+  geom_line(color = 'blue') +
+  geom_point(data=drc::deguelin, aes(x = dose, y = r/n), color = 'black') +
+  geom_errorbarh(aes(xmin = BMDL, xmax=BMDU, y=BMDy),height = 0.05, color = 'red') +
+  annotate("point", x = BMD, y=BMDy, color = 'red', shape = 18, size = 4) +
+  #geom_segment(x = BMDL, y = 0.2, xend = BMDL, yend = 0.35, color = 'red', linetype = 'dashed') +
+  geom_segment(x = BMD, y = 0.2, xend = BMD, yend = BMDy, color = 'red', linetype = 'dashed') + 
+  theme_bw() +
+ # labs(y = 'P(death)', title = 'Effect of deguelin on Macrosiphoniella sanborni') +
+  labs(y = 'P(death)') +
+  #annotate('text', label = "BMDL", x = BMDL, y = 0.25) +
+  annotate('text', label = "BMD", x = BMD+2.3, y = 0.25, color = 'red')
+```
+# Data simulation
+```{r}
+# N: total sample size
+# theta: model parameters
+# x: dose levels
+# w: sample size allocations
+sim_data = function(N, theta, x, w) {
+  
+  # construct data
+  n = ceiling(N*w)
+  
+  # dose response function
+  b = theta[1]
+  c = theta[2]
+  e = theta[3]
+  p = c + (1-c)/(1+exp(b*(log(x)-log(e))))
+  
+  # sample
+  events = rbinom(length(n), n, p)
+  
+  data.frame(
+    dose = x,
+    n = n,
+    events = events,
+    p = p,
+    phat = events/n
+  )
+  
+}
+```
+
+```{r}
+sim_data(100, coef(mod), c(0.01, 15, 40), c(1/3, 1/3, 1/3))
+```
+
+```{r}
+# check correctness
+x = seq(0.01, 50)
+w = rep(1/length(x), length(x))
+sim_data(10000, coef(mod), x, w) %>%
+  ggplot(aes(x = dose, y = p)) +
+  geom_line()
+```
+
+```{r}
+# simulate from the D-optimal design
+x = c(0.0566, 15.7, 30.5)
+w = c(1/3, 1/3, 1/3)
+sim_data(100, coef(mod), x, w)
+```
+
+```{r}
+# simulate from c-optimal design for BMD
+x = c(0.153, 15.5, 39.8)
+w = c(0.283, 0.483, 0.234)
+sim_data(100, coef(mod), x, w)
+```
+
+```{r}
+# simulate from original design
+x = deguelin$dose
+w = rep(1/6, 6)
+sim_data(100, coef(mod), x, w)
+```
+
+```{r}
+# compute length of BMD interval from simulated data
+compute_BMD_CI_length = function(dat) {
+  mod = drm(events/n ~ dose, weights = n, data = dat, fct = LL.3u(), type = 'binomial')
+  bmd_out = bmd(mod, bmr=0.1, backg=coef(mod)[2], display = F)
+  bmd_CI_length = 2*(bmd_out[1] - bmd_out[2])
+bmd_CI_length
+}
+```
+
+```{r}
+x = c(0.01, 15, 40)
+w = c(1/3, 1/3, 1/3)
+dat = sim_data(100, coef(mod), x, w) 
+compute_BMD_CI_length(dat)
+```
+
+```{r}
+# simulate confidence interval lengths for selected sample sizes
+simulate_CIs = function(sample_sizes, Nsim, theta, x, w) {
+  #browser()
+  result = matrix(data = NA, ncol = 3, nrow = length(sample_sizes)*Nsim)
+  j = 1
+  for (k in 1:length(sample_sizes)) {
+    for (i in 1:Nsim) {
+      # simulate data
+      dat = sim_data(sample_sizes[k], theta, x, w)
+      
+      # get confidence interval length
+      CI_length = as.numeric(try(suppressWarnings(compute_BMD_CI_length(dat))))
+      
+      # save to result
+      result[j, ] = c(sample_sizes[k], i, CI_length)
+      j = j + 1
+    }
+  }
+  
+  result = as.data.frame(result)
+  colnames(result) = c("N", "sim", "CI.length")
+  result
+}
+```
+
+```{r}
+# test on D optimal design
+set.seed(1234)
+sample_sizes = seq(20, 1000, 20)
+Nsim = 100
+theta = coef(mod)
+x = c(0.0566, 15.7, 30.5)
+w = c(1/3, 1/3, 1/3)
+result_D = simulate_CIs(sample_sizes, Nsim, theta, x, w)
+```
+
+```{r}
+result_D %>% group_by(N) %>% summarise(med = median(CI.length, na.rm = T)) %>%
+  filter(N > 500) %>%
+  ggplot(aes(x = N, y = med)) + geom_point() + geom_line() +
+  geom_hline(yintercept = 8.1541) +
+  labs(title = 'D-optimal design')
+```
+This is very distressing, even with the D-optimal design and a total sample size of 1000, we are no where close to the median confidence interval length being what it was in the data.
+
+What about for the c-optimal design?
+```{r}
+# c-optimal design
+set.seed(1234)
+sample_sizes = seq(20, 1000, 20)
+Nsim = 100
+theta = coef(mod)
+x = c(0.153, 15.5, 39.8)
+w = c(0.283, 0.483, 0.234)
+result_c = simulate_CIs(sample_sizes, Nsim, theta, x, w)
+```
+
+```{r}
+result_c %>% group_by(N) %>% summarise(med = median(CI.length, na.rm = T)) %>%
+  filter(N > 500) %>% 
+  ggplot(aes(x = N, y = med)) + geom_point() + geom_line() +
+  geom_hline(yintercept = 8.1541) +
+  labs(title = 'c-optimal design')
+```
+It looks like the c-optimal does worse?
+
+What about the original design?
+```{r}
+# original
+set.seed(1234)
+sample_sizes = seq(20, 1000, 20)
+Nsim = 100
+theta = coef(mod)
+x = deguelin$dose
+w = rep(1/6, 6)
+result_original = simulate_CIs(sample_sizes, Nsim, theta, x, w)
+```
+
+```{r}
+result_original %>% group_by(N) %>% summarise(med = median(CI.length, na.rm = T)) %>%
+  ggplot(aes(x = N, y = med)) + geom_point() + geom_line() +
+  geom_hline(yintercept = 8.1541) +
+  labs(title = 'Original design')
+```
