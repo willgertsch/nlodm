@@ -10,9 +10,11 @@ library(dplyr)
 library(tidyr)
 library(drc)
 library(bmd)
+library(ToxicR)
 ```
 
 # Basic set up
+## Modeling using drc package
 ```{r}
 mod = drm(r/n ~ dose, weights=n, data=deguelin, fct=LL.3u(), type='binomial')
 ```
@@ -50,6 +52,26 @@ pred_data %>%
   #annotate('text', label = "BMDL", x = BMDL, y = 0.25) +
   annotate('text', label = "BMD", x = BMD+2.3, y = 0.25, color = 'red')
 ```
+## Modeling using ToxicR package
+```{r}
+dat = drc::deguelin
+
+mod1 = single_dichotomous_fit(
+  D = dat$dose,
+  Y = dat$r,
+  N = dat$n,
+  model_type = 'log-logistic',
+  fit_type = 'mle',
+  BMR = 0.1,
+  alpha = 0.025
+)
+summary(mod1)
+```
+
+```{r}
+plot(mod1)
+```
+
 # Data simulation
 ```{r}
 # N: total sample size
@@ -62,10 +84,18 @@ sim_data = function(N, theta, x, w) {
   n = ceiling(N*w)
   
   # dose response function
-  b = theta[1]
-  c = theta[2]
-  e = theta[3]
-  p = c + (1-c)/(1+exp(b*(log(x)-log(e))))
+  # parameterization with ED50 as a parameter
+  # b = theta[1]
+  # c = theta[2]
+  # e = theta[3]
+  #p = c + (1-c)/(1+exp(b*(log(x)-log(e))))
+  
+  # BMDS/ToxicR parameterization
+  # see https://github.com/NIEHS/ToxicR/blob/main/R/dicho_functions.R
+  g = 1 / (1 + exp(-theta[1]))
+  a = theta[2]
+  b = theta[3]
+  p = g + (1 - g) * (1 / (1 + exp(-a - b * log(x))))
   
   # sample
   events = rbinom(length(n), n, p)
@@ -82,14 +112,14 @@ sim_data = function(N, theta, x, w) {
 ```
 
 ```{r}
-sim_data(100, coef(mod), c(0.01, 15, 40), c(1/3, 1/3, 1/3))
+sim_data(100, mod1$parameters, c(0.01, 15, 40), c(1/3, 1/3, 1/3))
 ```
 
 ```{r}
 # check correctness
 x = seq(0.01, 50)
 w = rep(1/length(x), length(x))
-sim_data(10000, coef(mod), x, w) %>%
+sim_data(10000, mod1$parameters, x, w) %>%
   ggplot(aes(x = dose, y = p)) +
   geom_line()
 ```
@@ -98,37 +128,52 @@ sim_data(10000, coef(mod), x, w) %>%
 # simulate from the D-optimal design
 x = c(0.0566, 15.7, 30.5)
 w = c(1/3, 1/3, 1/3)
-sim_data(100, coef(mod), x, w)
+sim_data(100, mod1$parameters, x, w)
 ```
 
 ```{r}
 # simulate from c-optimal design for BMD
 x = c(0.153, 15.5, 39.8)
 w = c(0.283, 0.483, 0.234)
-sim_data(100, coef(mod), x, w)
+sim_data(100, mod1$parameters, x, w)
 ```
 
 ```{r}
 # simulate from original design
 x = deguelin$dose
 w = rep(1/6, 6)
-sim_data(100, coef(mod), x, w)
+sim_data(100, mod1$parameters, x, w)
 ```
 
 ```{r}
 # compute length of BMD interval from simulated data
+# for the drc/bmd package, this is the delta method interval
+# for the ToxicR package, this is a profile likelihood interval
 compute_BMD_CI_length = function(dat) {
-  mod = drm(events/n ~ dose, weights = n, data = dat, fct = LL.3u(), type = 'binomial')
-  bmd_out = bmd(mod, bmr=0.1, backg=coef(mod)[2], display = F)
-  bmd_CI_length = 2*(bmd_out[1] - bmd_out[2])
-bmd_CI_length
+  # using drc and bmd package
+  # mod = drm(events/n ~ dose, weights = n, data = dat, fct = LL.3u(), type = 'binomial')
+  # bmd_out = bmd(mod, bmr=0.1, backg=coef(mod)[2], display = F)
+  # bmd_CI_length = 2*(bmd_out[1] - bmd_out[2])
+  
+  mod = single_dichotomous_fit(
+  D = dat$dose,
+  Y = dat$events,
+  N = dat$n,
+  model_type = 'log-logistic',
+  fit_type = 'mle',
+  BMR = 0.1,
+  alpha = 0.025
+)
+  
+  bmd_CI_length = as.numeric(mod$bmd[3] - mod$bmd[2])
+  bmd_CI_length
 }
 ```
 
 ```{r}
 x = c(0.01, 15, 40)
 w = c(1/3, 1/3, 1/3)
-dat = sim_data(100, coef(mod), x, w) 
+dat = sim_data(100, mod1$parameters, x, w) 
 compute_BMD_CI_length(dat)
 ```
 
@@ -139,6 +184,7 @@ simulate_CIs = function(sample_sizes, Nsim, theta, x, w) {
   result = matrix(data = NA, ncol = 3, nrow = length(sample_sizes)*Nsim)
   j = 1
   for (k in 1:length(sample_sizes)) {
+    cat('Running simulation for sample size', sample_sizes[k], '\n')
     for (i in 1:Nsim) {
       # simulate data
       dat = sim_data(sample_sizes[k], theta, x, w)
@@ -159,11 +205,15 @@ simulate_CIs = function(sample_sizes, Nsim, theta, x, w) {
 ```
 
 ```{r}
+sample_sizes = seq(10, 300, 10)
+```
+
+```{r}
 # test on D optimal design
 set.seed(1234)
-sample_sizes = seq(20, 1000, 20)
+
 Nsim = 100
-theta = coef(mod)
+theta = mod1$parameters
 x = c(0.0566, 15.7, 30.5)
 w = c(1/3, 1/3, 1/3)
 result_D = simulate_CIs(sample_sizes, Nsim, theta, x, w)
@@ -171,20 +221,20 @@ result_D = simulate_CIs(sample_sizes, Nsim, theta, x, w)
 
 ```{r}
 result_D %>% group_by(N) %>% summarise(med = median(CI.length, na.rm = T)) %>%
-  filter(N > 500) %>%
   ggplot(aes(x = N, y = med)) + geom_point() + geom_line() +
-  geom_hline(yintercept = 8.1541) +
+  geom_hline(yintercept = mod1$bmd[3] - mod1$bmd[2]) +
   labs(title = 'D-optimal design')
 ```
-This is very distressing, even with the D-optimal design and a total sample size of 1000, we are no where close to the median confidence interval length being what it was in the data.
+(Result from drc/bmd package) This is very distressing, even with the D-optimal design and a total sample size of 1000, we are no where close to the median confidence interval length being what it was in the data.
+
+(Result from ToxicR) We see that we need a sample size of over 200 to get the confidence interval below the desired limit.
 
 What about for the c-optimal design?
 ```{r}
 # c-optimal design
 set.seed(1234)
-sample_sizes = seq(20, 1000, 20)
 Nsim = 100
-theta = coef(mod)
+theta = mod1$parameters
 x = c(0.153, 15.5, 39.8)
 w = c(0.283, 0.483, 0.234)
 result_c = simulate_CIs(sample_sizes, Nsim, theta, x, w)
@@ -192,20 +242,18 @@ result_c = simulate_CIs(sample_sizes, Nsim, theta, x, w)
 
 ```{r}
 result_c %>% group_by(N) %>% summarise(med = median(CI.length, na.rm = T)) %>%
-  filter(N > 500) %>% 
   ggplot(aes(x = N, y = med)) + geom_point() + geom_line() +
-  geom_hline(yintercept = 8.1541) +
+  geom_hline(yintercept = mod1$bmd[3] - mod1$bmd[2]) +
   labs(title = 'c-optimal design')
 ```
-It looks like the c-optimal does worse?
+The c-optimal design does a bit better. What is going on at N=100?
 
 What about the original design?
 ```{r}
 # original
 set.seed(1234)
-sample_sizes = seq(20, 1000, 20)
 Nsim = 100
-theta = coef(mod)
+theta = mod1$parameters
 x = deguelin$dose
 w = rep(1/6, 6)
 result_original = simulate_CIs(sample_sizes, Nsim, theta, x, w)
@@ -214,6 +262,23 @@ result_original = simulate_CIs(sample_sizes, Nsim, theta, x, w)
 ```{r}
 result_original %>% group_by(N) %>% summarise(med = median(CI.length, na.rm = T)) %>%
   ggplot(aes(x = N, y = med)) + geom_point() + geom_line() +
-  geom_hline(yintercept = 8.1541) +
+  geom_hline(yintercept = mod1$bmd[3] - mod1$bmd[2]) +
   labs(title = 'Original design')
 ```
+This design seems to do worse compared to the optimal designs.
+
+```{r}
+rbind(
+  result_D,
+  result_c,
+  result_original
+) %>%
+  mutate(design = rep(c('D', 'c', 'original'), each=nrow(result_D))) %>%
+  group_by(N, design) %>% 
+  summarise(med = median(CI.length, na.rm = T)) %>%
+  ggplot(aes(x = N, y = med, color = design)) + geom_point() + geom_line() +
+  geom_hline(yintercept = mod1$bmd[3] - mod1$bmd[2], linetype = 2) +
+  theme_bw() +
+  labs(y = 'median CI length')
+```
+It seems that for low sample sizes, the original design with more design points will actually do better. We see the optimality properties that we expect once the sample size gets large.
