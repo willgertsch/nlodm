@@ -5,11 +5,12 @@ editor: visual
 ---
 
 ```{r}
+devtools::load_all('.')
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(drc)
-library(bmd)
+#library(bmd)
 library(ToxicR)
 ```
 
@@ -20,7 +21,7 @@ mod = drm(r/n ~ dose, weights=n, data=deguelin, fct=LL.3u(), type='binomial')
 ```
 
 ```{r}
-bmd_out = bmd(mod, bmr = 0.1, backg = 0.323801, def = 'excess', display = T)
+#bmd_out = bmd(mod, bmr = 0.1, backg = 0.323801, def = 'excess', display = T)
 ```
 
 
@@ -72,7 +73,8 @@ summary(mod1)
 plot(mod1)
 ```
 
-# Data simulation
+# Single stage designs
+## Data simulation
 ```{r}
 # N: total sample size
 # theta: model parameters
@@ -123,18 +125,65 @@ sim_data(10000, mod1$parameters, x, w) %>%
   ggplot(aes(x = dose, y = p)) +
   geom_line()
 ```
+```{r}
+# re-parameterize for design-finding code
+theta = mod1$parameters
+g = 1 / (1 + exp(-theta[1]))
+a = theta[2]
+b = theta[3]
+theta_nlodm = c(g, a, b)
+```
+
+```{r}
+# find the D-optimal design
+out_D = nlodm(
+      grad_fun = grad.loglogistic,
+      obj = "D",
+      theta = theta_nlodm,
+      bound = max(drc::deguelin$dose),
+      pts = 3,
+      algorithm = 'DE',
+      swarm = 100,
+      iter = 500,
+      seed = 246,
+      binary_response = T,
+      dr_fun = f.loglogistic3.bmds
+    )
+```
+
+```{r}
+# find the c-optimal design
+bmd_grad = get_bmd_grad("Log-logistic", 'extra')
+c = matrix(bmd_grad(0.1, theta_nlodm), nrow = 1)
+out_c = nlodm(
+      grad_fun = grad.loglogistic,
+      obj = "c",
+      theta = theta_nlodm,
+      bound = max(drc::deguelin$dose),
+      pts = 3,
+      algorithm = 'DE',
+      swarm = 100,
+      iter = 500,
+      seed = 248,
+      binary_response = T,
+      dr_fun = f.loglogistic3.bmds,
+      c = c
+    )
+```
 
 ```{r}
 # simulate from the D-optimal design
-x = c(0.0566, 15.7, 30.5)
-w = c(1/3, 1/3, 1/3)
+x = out_D$design$x
+w = out_D$design$w
 sim_data(100, mod1$parameters, x, w)
 ```
 
 ```{r}
 # simulate from c-optimal design for BMD
-x = c(0.153, 15.5, 39.8)
-w = c(0.283, 0.483, 0.234)
+# x = c(0.153, 15.5, 39.8)
+# w = c(0.283, 0.483, 0.234)
+x = out_c$design$x
+w = out_c$design$w
 sim_data(100, mod1$parameters, x, w)
 ```
 
@@ -144,7 +193,7 @@ x = deguelin$dose
 w = rep(1/6, 6)
 sim_data(100, mod1$parameters, x, w)
 ```
-
+## BMD CI computation
 ```{r}
 # compute length of BMD interval from simulated data
 # for the drc/bmd package, this is the delta method interval
@@ -171,12 +220,14 @@ compute_BMD_CI_length = function(dat) {
 ```
 
 ```{r}
+# test using nearly D-optimal design
 x = c(0.01, 15, 40)
 w = c(1/3, 1/3, 1/3)
 dat = sim_data(100, mod1$parameters, x, w) 
 compute_BMD_CI_length(dat)
 ```
 
+## Simulation study
 ```{r}
 # simulate confidence interval lengths for selected sample sizes
 simulate_CIs = function(sample_sizes, Nsim, theta, x, w) {
@@ -214,8 +265,10 @@ set.seed(1234)
 
 Nsim = 100
 theta = mod1$parameters
-x = c(0.0566, 15.7, 30.5)
-w = c(1/3, 1/3, 1/3)
+# x = c(0.0566, 15.7, 30.5)
+# w = c(1/3, 1/3, 1/3)
+x = out_D$design$x
+w = out_D$design$w
 result_D = simulate_CIs(sample_sizes, Nsim, theta, x, w)
 ```
 
@@ -235,8 +288,10 @@ What about for the c-optimal design?
 set.seed(1234)
 Nsim = 100
 theta = mod1$parameters
-x = c(0.153, 15.5, 39.8)
-w = c(0.283, 0.483, 0.234)
+# x = c(0.153, 15.5, 39.8)
+# w = c(0.283, 0.483, 0.234)
+x = out_c$design$x
+w = out_c$design$w
 result_c = simulate_CIs(sample_sizes, Nsim, theta, x, w)
 ```
 
@@ -282,3 +337,309 @@ rbind(
   labs(y = 'median CI length')
 ```
 It seems that for low sample sizes, the original design with more design points will actually do better. We see the optimality properties that we expect once the sample size gets large.
+
+# Two-stage designs
+
+## Define functions
+```{r}
+# simulate data from two-stage design and return confidence interval length
+# BMR fixed at 0.1 and using extra risk for now
+# N1: sample size in first stage
+# N2: sample size in second stage
+# theta: true parameter values to simulate from
+# design: how to assign x and w for stage 2
+# x_init: doses for stage 1
+# w_init: weights for stage 1
+# max_dose: maximum dosage allowed in the experiment
+sim_2stage = function(N1, N2, theta, design, x_init, w_init, max_dose) {
+  
+  
+  
+  # simulate data from stage 1
+  stage1_dat = sim_data(N1, theta, x_init, w_init)
+  
+  # fit model and get parameter estimates based on stage 1 data
+  mod = single_dichotomous_fit(
+    D = stage1_dat$dose,
+    Y = stage1_dat$events,
+    N = stage1_dat$n,
+    model_type = 'log-logistic',
+    fit_type = 'mle',
+    BMR = 0.1,
+    alpha = 0.025
+  )
+  theta_mod = mod$parameters
+  
+  # convert from ToxicR parameterization to one used in my design code
+  g = 1 / (1 + exp(-theta_mod[1]))
+  a = theta_mod[2]
+  b = theta_mod[3]
+  theta_nlodm = c(g, a, b)
+  
+  # find design for stage 2
+  if (design == 'D') {
+    # find the D-optimal design
+   # print('Finding D-optimal design...')
+    out = nlodm(
+      grad_fun = grad.loglogistic,
+      obj = "D",
+      theta = theta_nlodm,
+      bound = max_dose,
+      pts = 3,
+      algorithm = 'DE',
+      swarm = 100,
+      iter = 500,
+      seed = NULL,
+      binary_response = T,
+      dr_fun = f.loglogistic3.bmds
+    )
+    
+  }
+  else if (design == 'c') {
+    # find the c-optimal design for estimating the benchmark dose
+    #print('Finding c-optimal design...')
+    bmd_grad = get_bmd_grad("Log-logistic", 'extra')
+    c = matrix(bmd_grad(0.1, theta_nlodm), nrow = 1)
+    out = nlodm(
+      grad_fun = grad.loglogistic,
+      obj = "c",
+      theta = theta_nlodm,
+      bound = max_dose,
+      pts = 3,
+      algorithm = 'DE',
+      swarm = 100,
+      iter = 500,
+      seed = NULL,
+      binary_response = T,
+      dr_fun = f.loglogistic3.bmds,
+      c = c
+    )
+    
+  }
+  else if (design == 'stage1') {
+    # repeat the same design as in stage 1
+  }
+  else if (design == 'Wang2013') {
+    # use method inspired by Wang et al 2013
+  }
+  else {
+    stop('sim_2stage: design not supported')
+  }
+  
+  if (design == 'stage1') {
+    x = x_init
+    w = w_init
+  }
+  else {
+    x = out$design$x
+    w = out$design$w
+  }
+  
+  
+  # simulate data from stage 2
+  stage2_dat = sim_data(N2, theta, x, w)
+  
+  # combine stage 1 and stage 2 data
+  dat = rbind(stage1_dat, stage2_dat)
+  
+  # fit model and get CI
+  CI_length = compute_BMD_CI_length(dat)
+  
+  # return 
+  return(CI_length)
+}
+```
+
+```{r}
+# simulate 2 stage D-optimal design
+sim_2stage(
+  N1 = 100,
+  N2 = 100,
+  design = 'D',
+  theta = mod1$parameters,
+  x_init = deguelin$dose,
+  w_init = rep(1/6, 6),
+  max_dose = max(deguelin$dose)
+)
+```
+
+```{r}
+# simulate 2 stage c-optimal design
+sim_2stage(
+  N1 = 100,
+  N2 = 100,
+  design = 'c',
+  theta = mod1$parameters,
+  x_init = deguelin$dose,
+  w_init = rep(1/6, 6),
+  max_dose = max(deguelin$dose)
+)
+```
+```{r}
+# simulate 2 stage with repeated stages
+sim_2stage(
+  N1 = 100,
+  N2 = 100,
+  design = 'stage1',
+  theta = mod1$parameters,
+  x_init = deguelin$dose,
+  w_init = rep(1/6, 6),
+  max_dose = max(deguelin$dose)
+)
+```
+
+```{r}
+# sample_sizes: vector of N1, sample size for stage 1
+# ss_ratio: ratio of N1/N2, 1 implies equal sample sizes
+# Nsim: number of simulations for each sample size
+# theta: true parameter values to simulate from
+# design: design type in stage 2
+# max_dose: maximum dosage allowed
+# x_init, w_init, initial design for stage 1
+sim_2stage_CIs = function(sample_sizes, ss_ratio = 1, Nsim, theta, design, max_dose, x_init, w_init) {
+  
+  result = matrix(data = NA, ncol = 4, nrow = length(sample_sizes)*Nsim)
+  j = 1
+  for (k in 1:length(sample_sizes)) {
+    cat('Running simulation for sample size', sample_sizes[k], '\n')
+    for (i in 1:Nsim) {
+      # simulate data
+      #dat = sim_data(sample_sizes[k], theta, x, w)
+      
+      # get confidence interval length
+      #CI_length = as.numeric(try(suppressWarnings(compute_BMD_CI_length(dat))))
+      
+      CI_length = as.numeric(try(sim_2stage(
+        N1 = sample_sizes[k],
+        N2 = sample_sizes[k] * ss_ratio,
+        design = design,
+        theta = theta,
+        x_init = x_init,
+        w_init = w_init,
+        max_dose = max_dose
+      )))
+      
+      # save to result
+      result[j, ] = c(sample_sizes[k], sample_sizes[k]*ss_ratio, i, CI_length)
+      j = j + 1
+    }
+  }
+  
+  result = as.data.frame(result)
+  colnames(result) = c("N1", "N2", "sim", "CI.length")
+  result
+  
+}
+```
+
+```{r}
+# test simplest case
+result2_test = sim_2stage_CIs(
+  sample_sizes = c(20, 50, 100),
+  ss_ratio = 1,
+  Nsim = 1,
+  theta = mod1$parameters,
+  design = 'stage1',
+  max_dose = max(deguelin$dose),
+  x_init = deguelin$dose,
+  w_init = rep(1/6, 6)
+)
+```
+
+```{r}
+result2_test %>% 
+  mutate(N = N1 + N2) %>%
+  group_by(N) %>% summarise(med = median(CI.length, na.rm = T)) %>%
+  ggplot(aes(x = N, y = med)) + geom_point() + geom_line() +
+  geom_hline(yintercept = mod1$bmd[3] - mod1$bmd[2]) +
+  labs(title = 'test 2-stage simulation')
+```
+
+## D-optimal
+```{r}
+set.seed(345)
+result2_D = sim_2stage_CIs(
+  sample_sizes = c(15, 25, 50, 75, 100),
+  ss_ratio = 1,
+  Nsim = 20,
+  theta = mod1$parameters,
+  design = 'D',
+  max_dose = max(deguelin$dose),
+  x_init = deguelin$dose,
+  w_init = rep(1/6, 6)
+)
+```
+
+```{r}
+result2_D %>% 
+  mutate(N = N1 + N2) %>%
+  group_by(N) %>% summarise(med = median(CI.length, na.rm = T)) %>%
+  ggplot(aes(x = N, y = med)) + geom_point() + geom_line() +
+  geom_hline(yintercept = mod1$bmd[3] - mod1$bmd[2]) +
+  labs(title = 'Two-stage design with D-optimal second stage')
+```
+## c-optimal
+```{r}
+set.seed(358)
+result2_c = sim_2stage_CIs(
+  sample_sizes = c(15, 25, 50, 75, 100),
+  ss_ratio = 1,
+  Nsim = 20,
+  theta = mod1$parameters,
+  design = 'c',
+  max_dose = max(deguelin$dose),
+  x_init = deguelin$dose,
+  w_init = rep(1/6, 6)
+)
+```
+
+```{r}
+result2_c %>% 
+  mutate(N = N1 + N2) %>%
+  group_by(N) %>% summarise(med = median(CI.length, na.rm = T)) %>%
+  ggplot(aes(x = N, y = med)) + geom_point() + geom_line() +
+  geom_hline(yintercept = mod1$bmd[3] - mod1$bmd[2]) +
+  labs(title = 'Two-stage design with c-optimal second stage')
+```
+
+## Original design at both stages
+```{r}
+set.seed(407)
+result2_original = sim_2stage_CIs(
+  sample_sizes = c(15, 25, 50, 75, 100),
+  ss_ratio = 1,
+  Nsim = 20,
+  theta = mod1$parameters,
+  design = 'stage1',
+  max_dose = max(deguelin$dose),
+  x_init = deguelin$dose,
+  w_init = rep(1/6, 6)
+)
+```
+
+```{r}
+result2_original %>% 
+  mutate(N = N1 + N2) %>%
+  group_by(N) %>% summarise(med = median(CI.length, na.rm = T)) %>%
+  ggplot(aes(x = N, y = med)) + geom_point() + geom_line() +
+  geom_hline(yintercept = mod1$bmd[3] - mod1$bmd[2]) +
+  labs(title = 'Two-stage design with same first and second stages')
+```
+
+## Combined results
+```{r}
+rbind(
+  result2_D,
+  result2_c,
+  result2_original
+) %>%
+  mutate(N = N1 + N2) %>%
+  mutate(design = rep(c('D', 'c', 'original'), each=nrow(result2_D))) %>%
+  group_by(N, design) %>% 
+  summarise(med = median(CI.length, na.rm = T)) %>%
+  ggplot(aes(x = N, y = med, color = design)) + geom_point() + geom_line() +
+  geom_hline(yintercept = mod1$bmd[3] - mod1$bmd[2], linetype = 2) +
+  theme_bw() +
+  labs(y = 'median CI length', title = 'Comparison of second stage approaches in two-stage designs')
+```
+It looks like learning in the second stage improves precision at lower sample sizes. In the last simulation study, we saw that there is some advantage to using a uniform design with more points at a smaller sample size. It might be that the two-stage design with the original design in the first stage and an optimal design at the second stage would be the best of both worlds.
