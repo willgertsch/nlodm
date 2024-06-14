@@ -700,10 +700,11 @@ Now we need to compute the stage 2 design.
 # dat_stage1: data from first stage of design
 wang_stage2 = function(N, max_dose, G, dat_stage1) {
   
+  #browser()
   # fit model
   mod = single_dichotomous_fit(
     D = dat_stage1$dose,
-    Y = dat_stage1$r,
+    Y = dat_stage1$events,
     N = dat_stage1$n,
     model_type = 'log-logistic',
     fit_type = 'mle',
@@ -715,26 +716,62 @@ wang_stage2 = function(N, max_dose, G, dat_stage1) {
   # how to match to stage 1 data?
   # they don't bother with this
   # they just used an evenly spaced grid
-  dose_grid = seq(0, max_dose, length.out = G)
+  dose_grid = seq(0.001, max_dose, length.out = G)
   
   # greedy algorithm loops
   # add a design point
+  dat_stage12 = dat_stage1
   for (k in 1:N) {
     # consider each grid point
+    cat('Choosing point', k, 'of', N, '\n')
     design_criteria = numeric(G)
+    ys = numeric(G) # simulated response values
     for (g in 1:G) {
       
+      # simulate response at point
+      # should we be doing this multiple times?
+      p = predict(mod, new_doses = dose_grid[g])$Y
+      ys[g] = rbinom(1, 1, p)
       # add point to dataset
+      test_dat = rbind(
+        dat_stage12,
+        c(dose_grid[g], 1, ys[g], NA, NA)
+      )
       
       # evaluate design criteria
       # bootstrapping in original, but we use profile likelihood
-      
-      design_criteria[g] = 1
+      design_criteria[g] = compute_BMD_CI_length(test_dat)
     }
     
     # save best grid point
-    best_point = min(design_criteria)
+    best_dose = dose_grid[which.min(design_criteria)]
+    y = ys[which.min(design_criteria)]
+    dat_stage12 = rbind(
+      dat_stage12,
+      c(best_dose, 1, y, NA, NA)
+    )
     
   }
+  # return stage 2 design
+  return(count(tail(dat_stage12, N), dose))
 }
 ```
+
+```{r}
+# test case: deguelin design
+# generate stage 1 design
+set.seed(211)
+stage1_dat = sim_data_exact(mod1$parameters, deguelin$dose, deguelin$n)
+stage2 = wang_stage2(100, max(deguelin$dose), 10, stage1_dat)
+```
+
+```{r}
+stage2
+```
+
+It seems that the algorithm targets the low dose range, which kinda makes sense. It is surprising that it doesn't sample closer to the BMD.
+
+
+
+
+
