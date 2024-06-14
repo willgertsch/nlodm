@@ -338,7 +338,7 @@ rbind(
 ```
 It seems that for low sample sizes, the original design with more design points will actually do better. We see the optimality properties that we expect once the sample size gets large.
 
-# Two-stage designs
+# Simple two-stage designs
 
 ## Define functions
 ```{r}
@@ -561,7 +561,7 @@ set.seed(345)
 result2_D = sim_2stage_CIs(
   sample_sizes = c(15, 25, 50, 75, 100),
   ss_ratio = 1,
-  Nsim = 20,
+  Nsim = 30,
   theta = mod1$parameters,
   design = 'D',
   max_dose = max(deguelin$dose),
@@ -584,7 +584,7 @@ set.seed(358)
 result2_c = sim_2stage_CIs(
   sample_sizes = c(15, 25, 50, 75, 100),
   ss_ratio = 1,
-  Nsim = 20,
+  Nsim = 30,
   theta = mod1$parameters,
   design = 'c',
   max_dose = max(deguelin$dose),
@@ -608,7 +608,7 @@ set.seed(407)
 result2_original = sim_2stage_CIs(
   sample_sizes = c(15, 25, 50, 75, 100),
   ss_ratio = 1,
-  Nsim = 20,
+  Nsim = 30,
   theta = mod1$parameters,
   design = 'stage1',
   max_dose = max(deguelin$dose),
@@ -642,4 +642,99 @@ rbind(
   theme_bw() +
   labs(y = 'median CI length', title = 'Comparison of second stage approaches in two-stage designs')
 ```
-It looks like learning in the second stage improves precision at lower sample sizes. In the last simulation study, we saw that there is some advantage to using a uniform design with more points at a smaller sample size. It might be that the two-stage design with the original design in the first stage and an optimal design at the second stage would be the best of both worlds.
+It looks like learning in the second stage improves precision at lower sample sizes. In the last simulation study, we saw that there is some advantage to using a uniform design with more points at a smaller sample size. It might be that the two-stage design with the original design in the first stage and an optimal design at the second stage would be the best of both worlds. There isn't much of an advantage of using c-optimal designs it seems.
+
+# Wang et. al. two-stage designs
+
+Wang et al don't use approximate designs and instead of use exact designs. We therefore need a function for generating data from exact designs.
+```{r}
+# generate data from exact design
+# theta: model parameters
+# x: dose levels
+# n: sample size at each dose
+sim_data_exact = function(theta, x, n) {
+  
+  # construct data
+  
+  # BMDS/ToxicR parameterization
+  # see https://github.com/NIEHS/ToxicR/blob/main/R/dicho_functions.R
+  g = 1 / (1 + exp(-theta[1]))
+  a = theta[2]
+  b = theta[3]
+  p = g + (1 - g) * (1 / (1 + exp(-a - b * log(x))))
+  
+  # sample
+  events = rbinom(length(n), n, p)
+  
+  data.frame(
+    dose = x,
+    n = n,
+    events = events,
+    p = p,
+    phat = events/n
+  )
+  
+}
+```
+
+```{r}
+# test simulate from deguelin data
+sim_data_exact(mod1$parameters, deguelin$dose, deguelin$n)
+```
+
+Wang et al quantify the uncertantity of the BMD through bootstrapping. Their method uses a continuous model with heterogenous variances, so their bootstrapping method is not directly applicable to our binary response case. (They recompute the response values with some extra noise)
+```{r}
+# based on algorithm 2 in Wang et al for evaluating Var[BMD]
+# estimate an interval for the BMD using bootstrapping
+boot_bmd = function() {
+  # TODO if ever interested in bootstrapped BMD
+}
+```
+
+
+Now we need to compute the stage 2 design. 
+```{r}
+# N: sample size for stage 2
+# max_dose: maximum dose value
+# G: number of grid points
+# dat_stage1: data from first stage of design
+wang_stage2 = function(N, max_dose, G, dat_stage1) {
+  
+  # fit model
+  mod = single_dichotomous_fit(
+    D = dat_stage1$dose,
+    Y = dat_stage1$r,
+    N = dat_stage1$n,
+    model_type = 'log-logistic',
+    fit_type = 'mle',
+    BMR = 0.1,
+    alpha = 0.025
+  )
+  
+  # discretize dose range
+  # how to match to stage 1 data?
+  # they don't bother with this
+  # they just used an evenly spaced grid
+  dose_grid = seq(0, max_dose, length.out = G)
+  
+  # greedy algorithm loops
+  # add a design point
+  for (k in 1:N) {
+    # consider each grid point
+    design_criteria = numeric(G)
+    for (g in 1:G) {
+      
+      # add point to dataset
+      
+      # evaluate design criteria
+      # bootstrapping in original, but we use profile likelihood
+      
+      design_criteria[g] = 1
+    }
+    
+    # save best grid point
+    best_point = min(design_criteria)
+    
+  }
+}
+```
