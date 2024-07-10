@@ -12,6 +12,7 @@ library(tidyr)
 library(drc)
 #library(bmd)
 library(ToxicR)
+library(rBayesianOptimization)
 ```
 
 # Basic set up
@@ -76,41 +77,41 @@ plot(mod1)
 # Single stage designs
 ## Data simulation
 ```{r}
-# N: total sample size
-# theta: model parameters
-# x: dose levels
-# w: sample size allocations
-sim_data = function(N, theta, x, w) {
-  
-  # construct data
-  n = ceiling(N*w)
-  
-  # dose response function
-  # parameterization with ED50 as a parameter
-  # b = theta[1]
-  # c = theta[2]
-  # e = theta[3]
-  #p = c + (1-c)/(1+exp(b*(log(x)-log(e))))
-  
-  # BMDS/ToxicR parameterization
-  # see https://github.com/NIEHS/ToxicR/blob/main/R/dicho_functions.R
-  g = 1 / (1 + exp(-theta[1]))
-  a = theta[2]
-  b = theta[3]
-  p = g + (1 - g) * (1 / (1 + exp(-a - b * log(x))))
-  
-  # sample
-  events = rbinom(length(n), n, p)
-  
-  data.frame(
-    dose = x,
-    n = n,
-    events = events,
-    p = p,
-    phat = events/n
-  )
-  
-}
+# # N: total sample size
+# # theta: model parameters
+# # x: dose levels
+# # w: sample size allocations
+# sim_data = function(N, theta, x, w) {
+#   
+#   # construct data
+#   n = ceiling(N*w)
+#   
+#   # dose response function
+#   # parameterization with ED50 as a parameter
+#   # b = theta[1]
+#   # c = theta[2]
+#   # e = theta[3]
+#   #p = c + (1-c)/(1+exp(b*(log(x)-log(e))))
+#   
+#   # BMDS/ToxicR parameterization
+#   # see https://github.com/NIEHS/ToxicR/blob/main/R/dicho_functions.R
+#   g = 1 / (1 + exp(-theta[1]))
+#   a = theta[2]
+#   b = theta[3]
+#   p = g + (1 - g) * (1 / (1 + exp(-a - b * log(x))))
+#   
+#   # sample
+#   events = rbinom(length(n), n, p)
+#   
+#   data.frame(
+#     dose = x,
+#     n = n,
+#     events = events,
+#     p = p,
+#     phat = events/n
+#   )
+#   
+# }
 ```
 
 ```{r}
@@ -195,28 +196,28 @@ sim_data(100, mod1$parameters, x, w)
 ```
 ## BMD CI computation
 ```{r}
-# compute length of BMD interval from simulated data
-# for the drc/bmd package, this is the delta method interval
-# for the ToxicR package, this is a profile likelihood interval
-compute_BMD_CI_length = function(dat) {
-  # using drc and bmd package
-  # mod = drm(events/n ~ dose, weights = n, data = dat, fct = LL.3u(), type = 'binomial')
-  # bmd_out = bmd(mod, bmr=0.1, backg=coef(mod)[2], display = F)
-  # bmd_CI_length = 2*(bmd_out[1] - bmd_out[2])
-  
-  mod = single_dichotomous_fit(
-  D = dat$dose,
-  Y = dat$events,
-  N = dat$n,
-  model_type = 'log-logistic',
-  fit_type = 'mle',
-  BMR = 0.1,
-  alpha = 0.025
-)
-  
-  bmd_CI_length = as.numeric(mod$bmd[3] - mod$bmd[2])
-  bmd_CI_length
-}
+# # compute length of BMD interval from simulated data
+# # for the drc/bmd package, this is the delta method interval
+# # for the ToxicR package, this is a profile likelihood interval
+# compute_BMD_CI_length = function(dat) {
+#   # using drc and bmd package
+#   # mod = drm(events/n ~ dose, weights = n, data = dat, fct = LL.3u(), type = 'binomial')
+#   # bmd_out = bmd(mod, bmr=0.1, backg=coef(mod)[2], display = F)
+#   # bmd_CI_length = 2*(bmd_out[1] - bmd_out[2])
+#   
+#   mod = single_dichotomous_fit(
+#   D = dat$dose,
+#   Y = dat$events,
+#   N = dat$n,
+#   model_type = 'log-logistic',
+#   fit_type = 'mle',
+#   BMR = 0.1,
+#   alpha = 0.025
+# )
+#   
+#   bmd_CI_length = as.numeric(mod$bmd[3] - mod$bmd[2])
+#   bmd_CI_length
+# }
 ```
 
 ```{r}
@@ -421,6 +422,7 @@ sim_2stage = function(N1, N2, theta, design, x_init, w_init, max_dose) {
   }
   else if (design == 'Wang2013') {
     # use method inspired by Wang et al 2013
+    
   }
   else {
     stop('sim_2stage: design not supported')
@@ -645,7 +647,7 @@ rbind(
 It looks like learning in the second stage improves precision at lower sample sizes. In the last simulation study, we saw that there is some advantage to using a uniform design with more points at a smaller sample size. It might be that the two-stage design with the original design in the first stage and an optimal design at the second stage would be the best of both worlds. There isn't much of an advantage of using c-optimal designs it seems.
 
 # Wang et. al. two-stage designs
-
+## function definitions
 Wang et al don't use approximate designs and instead of use exact designs. We therefore need a function for generating data from exact designs.
 ```{r}
 # generate data from exact design
@@ -771,7 +773,177 @@ stage2
 
 It seems that the algorithm targets the low dose range, which kinda makes sense. It is surprising that it doesn't sample closer to the BMD.
 
+# Metaheuristics-based method
+The idea of this approach is to use metaheuristics to directly optimize the CI length. 
 
+```{r}
+# N: sample size of experiment
+# theta: true parameter values
+# pts: number of design points
+# max_dose: maximum dosage allowed
+# algorithm: metaheuristic algorithm from metaheuristicOpt
+# swarm: swarm size
+# maxIter: maximum number of iterations
+find_design_meta = function(N,
+                            theta,
+                            pts,
+                            max_dose,
+                            algorithm,
+                            swarm,
+                            maxIter) {
+  
+  # define objective function
+  force(theta)
+  force(N)
+  
+  obj_fun = function(vars) {
+    #browser()
+    # extract
+    pts = length(vars)/2
+    x = vars[1:pts]
+    w = vars[(pts + 1):(2*pts)]
+    
+    #print(vars)
+    
+    # check weight constraint
+    s = sum(w, na.rm = T) # na.rm needed to fix if statement error
+    if (s > 1)
+      # constraint implementation
+      return(Inf)
+    
+    # simulate data
+    dat = sim_data(N, theta, x, w)
+    #print(dat)
+    
+    # compute CI
+    CI_length = compute_BMD_CI_length(dat)
+    
+    if (is.na(CI_length))
+      return(Inf)
+    else
+      return(CI_length)
+  }
+  
+  # minimize using metaheuristics
+  # set up variable bounds
+  rangeVar = matrix(c(rep(c(0, max_dose), pts), rep(c(0, 1), pts)), nrow = 2)
+  # algorithm options
+  control = list(numPopulation = swarm, maxIter = maxIter)
+  
+  #print(rangeVar)
+  
+  # find design
+  out = metaheuristicOpt::metaOpt(
+    obj_fun,
+    optimType = "MIN",
+    algorithm = algorithm,
+    numVar = 2*pts,
+    rangeVar = rangeVar,
+    control = control,
+    seed = NULL
+  )
+  
+  return(out)
+  
+}
+```
 
+Test this method.
+```{r}
+find_design_meta(
+  N = 100,
+  theta = mod1$parameters,
+  pts = 6,
+  max_dose = max(deguelin$dose),
+  algorithm = 'GA',
+  swarm = 30,
+  maxIter = 100
+)
+```
+
+I'm not happy with how slow this is. Also not getting very good results currently. Could be good for finding a single stage design, but running this in a simulation study to evaluate two-stage performance would take a while. Running GA gave me a design with most of the weight at around 19.
+
+# Bayesian optmization
+Bayesian optimization is supposedly good for expensive objective functions and can handle noise.
+```{r}
+find_design_bayes = function(N,
+                             theta,
+                             max_dose,
+                             n_iter = 10,
+                             verbose = T) {
+  # define objective function to be maximized
+  force(theta)
+  force(N)
+  
+  obj_fun = function(x1, x2, x3, w1, w2, w3) {
+    #browser()
+    # extract
+    x = c(x1, x2, x3)
+    w = c(w1, w2, w3)
+    
+    #print(vars)
+    
+    # normalize weights
+    w = w/sum(w)
+    
+    # simulate data
+    dat = sim_data(N, theta, x, w)
+    #print(dat)
+    
+    # compute CI
+    CI_length = compute_BMD_CI_length(dat)
+    
+    if (is.na(CI_length))
+      CI_length = max_dose
+    
+    return(list(Score = -CI_length, Pred = NULL))
+  }
+  
+  search_bound = list(
+    x1 = c(0.01, max_dose),
+    x2 = c(0.01, max_dose),
+    x3 = c(0.01, max_dose),
+    w1 = c(0, 1),
+    w2 = c(0, 1),
+    w3 = c(0, 1)
+  )
+  
+  search_grid = data.frame(
+    x1 = runif(5, 0.01, max_dose),
+    x2 = runif(5, 0.01, max_dose),
+    x3 = runif(5, 0.01, max_dose),
+    w1 = rep(1/3, 5),
+    w2 = rep(1/3, 5),
+    w3 = rep(1/3, 5)
+  )
+  
+  bayes = BayesianOptimization(
+    FUN = obj_fun,
+    bounds = search_bound,
+    init_grid_dt = search_grid,
+    init_points = 0,
+    n_iter = n_iter,
+    acq = 'ei',
+    verbose = verbose
+  )
+  
+  design = list(
+    x = bayes$Best_Par[1:3],
+    w = bayes$Best_Par[4:6]/sum(bayes$Best_Par[4:6]),
+    min_CI = -bayes$Best_Value
+  )
+  
+  return(design)
+}
+```
+
+```{r}
+set.seed(143)
+result = find_design_bayes(100, mod1$parameters, max(deguelin$dose), 10, verbose = T)
+```
+
+```{r}
+result
+```
 
 
